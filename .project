@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>attila2</name>
+	<name>ATtILA2</name>
 	<comment></comment>
 	<projects>
+		<project>pylet</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
@@ -12,6 +13,7 @@
 		</buildCommand>
 	</buildSpec>
 	<natures>
+		<nature>com.aptana.projects.webnature</nature>
 		<nature>org.python.pydev.pythonNature</nature>
 	</natures>
 </projectDescription>

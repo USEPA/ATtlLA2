@@ -1,0 +1,37 @@
+class ToolValidator:
+  """Class for validating a tool's parameter values and controlling
+  the behavior of the tool's dialog."""
+
+  def __init__(self):
+    """Setup arcpy and the list of tool parameters."""
+    import arcpy
+    self.params = arcpy.GetParameterInfo()
+    self.checkboxInParameter = self.params[1]
+    self.checkboxParameter = self.params[2]
+    self.initialized = False
+
+  def initializeParameters(self):
+    """Refine the properties of a tool's parameters.  This method is
+    called when the tool is opened."""
+    # self.params[1].enabled = True
+    # self.initialized = True
+    return
+
+  def updateParameters(self):
+    """Modify the values and properties of parameters before internal
+    validation is performed.  This method is called whenever a parmater
+    has been changed."""
+    if self.checkboxParameter.value:
+      self.params[1].enabled = False
+    else:
+      self.params[1].enabled = True
+    return
+
+  def updateMessages(self):
+    """Modify the messages created by internal validation for each tool
+    parameter.  This method is called after internal validation."""
+    # if optional check box is unselected, clear the parameter message area and value area
+    if not self.params[1].enabled:
+        self.params[1].clearMessage()
+        self.params[1].value = ''   
+    return

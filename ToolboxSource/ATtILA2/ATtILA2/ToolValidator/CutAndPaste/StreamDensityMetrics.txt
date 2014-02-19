@@ -1,0 +1,18 @@
+
+import os
+import sys
+tbxPath = __file__.split("#")[0]
+sourceName = "ToolboxSource" 
+tbxParentDirPath =  os.path.dirname(tbxPath)
+srcDirPath = os.path.join(tbxParentDirPath, sourceName)
+sys.path.append(srcDirPath)
+import ATtILA2
+
+class ToolValidator (ATtILA2.ToolValidator.rdmToolValidator):
+    " Class for validating parameters "
+
+    inTableIndex = 0
+    srcDirName = sourceName
+    inVector2Index = 2
+    outTableIndex = 3
+    optionalFieldsIndex = 5

@@ -1,0 +1,22 @@
+
+import os
+import sys
+tbxPath = __file__.split("#")[0]
+sourceName = "ToolboxSource" 
+tbxParentDirPath =  os.path.dirname(tbxPath)
+srcDirPath = os.path.join(tbxParentDirPath, sourceName)
+sys.path.append(srcDirPath)
+import ATtILA2
+
+class ToolValidator (ATtILA2.ToolValidator.caemToolValidator):
+    " Class for validating parameters "
+
+    inTableIndex = 0 
+    startIndex = 3
+    optionalFieldsIndex = 10 
+    inRasterIndex = 2
+    inDistanceIndex = 6
+    outTableIndex = 7     
+    processingCellSizeIndex = 8 
+    snapRasterIndex = 9 
+    srcDirName = sourceName

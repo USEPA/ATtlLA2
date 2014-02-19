@@ -1,0 +1,20 @@
+
+import os
+import sys
+tbxPath = __file__.split("#")[0]
+sourceName = "ToolboxSource" 
+tbxParentDirPath =  os.path.dirname(tbxPath)
+srcDirPath = os.path.join(tbxParentDirPath, sourceName)
+sys.path.append(srcDirPath)
+import ATtILA2
+
+class ToolValidator (ATtILA2.ToolValidator.lcdToolValidator):
+    " Class for validating parameters "
+
+    inTableIndex = 0
+    optionalFieldsIndex = 6
+    inRasterIndex = 2
+    outTableIndex = 3
+    processingCellSizeIndex = 4 
+    snapRasterIndex = 5
+    srcDirName = sourceName

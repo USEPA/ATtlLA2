@@ -1,0 +1,21 @@
+
+import os
+import sys
+tbxPath = __file__.split("#")[0]
+sourceName = "ToolboxSource" 
+tbxParentDirPath =  os.path.dirname(tbxPath)
+srcDirPath = os.path.join(tbxParentDirPath, sourceName)
+sys.path.append(srcDirPath)
+import ATtILA2
+
+class ToolValidator (ATtILA2.ToolValidator.pdmToolValidator):
+    " Class for validating parameters "
+
+    inTableIndex = 0
+    srcDirName = sourceName
+    inVector2Index = 2
+    inVector3Index = 6
+    outTableIndex = 4
+    optionalFieldsIndex = 8
+    checkbox1Index = 5
+    checkboxInParameters = {'checkbox1':[6, 7]}
