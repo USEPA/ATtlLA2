@@ -146,9 +146,15 @@ class ProportionsValidator(object):
 
     def initializeParameters(self):
         """ ESRI - Initialize parameters"""
-
+        absPath = os.path.dirname(os.path.abspath(getattr(__main__,'__file__','__main__.py')));
+        #Baohong
+        fw = open("C:/Users/Baohong_Inno/Documents/Ji_Inno/Project/GIS_Desktop/ATtILA_CAEM/Doc/Result/Debug/logBaseValidators" , 'a' )
+        fw.write("absPath: " + absPath + "\n")
+        fw.flush()
+        os.fsync(fw)
+        fw.close()    
         # Populate predefined LCC dropdown
-        parentDir = os.path.dirname( __main__.__file__.split("#")[0])
+        parentDir = os.path.dirname( absPath.split("#")[0])
         self.srcDirPath = os.path.join(parentDir, self.srcDirName, )
         self.lccFileDirSearch = os.path.join(self.srcDirPath, self.lccFileDirName, "*" + self.lccFileExtension)
         filterList = []
