@@ -558,15 +558,10 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
         AddMsg(timer.start() + " Setting up environment variables")
         # Get the metric constants
         metricConst = metricConstants.rdmConstants()
-        # Set the output workspace
-        _tempEnvironment1 = env.workspace
-        env.workspace = arcpyutil.environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
-        _tempEnvironment4 = env.outputMFlag
-        _tempEnvironment5 = env.outputZFlag
-        # Streams and road crossings script fails in certain circumstances when M (linear referencing dimension) is enabled.
-        # Disable for the duration of the tool.
-        env.outputMFlag = "Disabled"
-        env.outputZFlag = "Disabled"
+
+        # Run the setup
+        setupAndRestore.standardSetup("", "", os.path.dirname(outTable))
+        
         # Strip the description from the "additional option" and determine whether intermediates are stored.
         processed = arcpyutil.parameters.splitItemsAndStripDescriptions(optionalFieldGroups, globalConstants.descriptionDelim)
         if globalConstants.intermediateName in processed:
@@ -734,10 +729,7 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
             for (function,arguments) in cleanupList:
                 # Flexibly executes any functions added to cleanup array.
                 function(*arguments)
-        env.workspace = _tempEnvironment1
-        env.outputMFlag = _tempEnvironment4
-        env.outputZFlag = _tempEnvironment5
-
+        setupAndRestore.standardRestore()
 
 def runStreamDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inLineFeature, outTable, lineCategoryField="", 
                                optionalFieldGroups="#"):
@@ -746,22 +738,16 @@ def runStreamDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inL
     from pylet import arcpyutil
     cleanupList = [] # This is an empty list object that will contain tuples of the form (function, arguments) as needed for cleanup
     try:
-        # Work on making as generic as possible
         ### Initialization
         # Start the timer
         timer = DateTimer()
         AddMsg(timer.start() + " Setting up environment variables")
         # Get the metric constants
         metricConst = metricConstants.sdmConstants()
-        # Set the output workspace
-        _tempEnvironment1 = env.workspace
-        env.workspace = arcpyutil.environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
-        _tempEnvironment4 = env.outputMFlag
-        _tempEnvironment5 = env.outputZFlag
-        # Streams and road crossings script fails in certain circumstances when M (linear referencing dimension) is enabled.
-        # Disable for the duration of the tool.
-        env.outputMFlag = "Disabled"
-        env.outputZFlag = "Disabled"
+
+        # Run the setup
+        setupAndRestore.standardSetup("", "", os.path.dirname(outTable))
+
         # Strip the description from the "additional option" and determine whether intermediates are stored.
         processed = arcpyutil.parameters.splitItemsAndStripDescriptions(optionalFieldGroups, globalConstants.descriptionDelim)
         if globalConstants.intermediateName in processed:
@@ -786,18 +772,8 @@ def runStreamDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inL
         uIDField = utils.settings.processUIDField(inReportingUnitFeature,reportingUnitIdField)
 
         AddMsg(timer.split() + " Calculating reporting unit area")
-        # Add a field to the reporting units to hold the area value in square kilometers
-        # Check for existence of field.
-        fieldList = arcpy.ListFields(inReportingUnitFeature,metricConst.areaFieldname)
-        # Add and populate the area field (or just recalculate if it already exists
+        # Add and populate the area field in square kilometers (or just recalculate if it already exists)
         unitArea = utils.vector.addAreaField(inReportingUnitFeature,metricConst.areaFieldname)
-        if not fieldList: # if the list of fields that exactly match the validated fieldname is empty...
-            if not cleanupList[0] == "KeepIntermediates":
-                # ...add this to the list of items to clean up at the end.
-                pass
-                # *** this was previously necessary when the field was added to the input - now that a copy of the input
-                #     is used instead, this is not necessary.
-                #cleanupList.append((arcpy.DeleteField_management,(inReportingUnitFeature,unitArea)))
 
         # If necessary, create a copy of the stream feature class to remove M values.  The env.outputMFlag should work
         # for most datasets except for shapefiles with M and Z values, but doesn't. The Z value will keep the M value 
@@ -842,9 +818,7 @@ def runStreamDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inL
             for (function,arguments) in cleanupList:
                 # Flexibly executes any functions added to cleanup array.
                 function(*arguments)
-        env.workspace = _tempEnvironment1
-        env.outputMFlag = _tempEnvironment4
-        env.outputZFlag = _tempEnvironment5
+        setupAndRestore.standardRestore()
         
 
 def runLandCoverDiversity(inReportingUnitFeature, reportingUnitIdField, inLandCoverGrid, outTable, processingCellSize, 

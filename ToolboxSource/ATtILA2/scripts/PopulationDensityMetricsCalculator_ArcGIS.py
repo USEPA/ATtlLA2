@@ -12,7 +12,7 @@ from pylet.arcpyutil import parameters
 def main(_argv):
     
     # Script arguments
-    inputArguments = parameters.getParametersAsText([0, 2, 6])
+    inputArguments = parameters.getParametersAsText([2])
     
     metric.runPopulationDensityCalculator(*inputArguments)
 

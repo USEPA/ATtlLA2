@@ -12,7 +12,7 @@ from pylet.arcpyutil import parameters
 def main(_argv):
     
     # Script arguments
-    inputArguments = parameters.getParametersAsText([0, 2])
+    inputArguments = parameters.getParametersAsText([])
     
     metric.runStreamDensityCalculator(*inputArguments)
 
