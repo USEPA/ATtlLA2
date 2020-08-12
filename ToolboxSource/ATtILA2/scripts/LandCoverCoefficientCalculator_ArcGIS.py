@@ -7,11 +7,11 @@
 
 import sys
 from ATtILA2 import metric
-from pylet.arcpyutil import parameters
+#from pylet.utils import parameters
+from ATtILA2.utils import parameters
 
 
 def main(_argv):
-    
     # Script arguments
     inputArguments = parameters.getParametersAsText([0, 2])
     

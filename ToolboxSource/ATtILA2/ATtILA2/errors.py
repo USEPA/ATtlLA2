@@ -1,7 +1,7 @@
 ''' Tasks specific to error handling
 '''
 
-from ATtILA2.constants import errorConstants
+from .constants import errorConstants
 
 import arcpy
 import sys
@@ -50,5 +50,5 @@ def standardErrorHandling(exception):
     if not arcpy.GetMessages(2) == "":
         arcpy.AddError(arcpy.GetMessages(2))
     
-    print msg  # To ensure message is printed to command line if run as standalone.
+    print(msg)  # To ensure message is printed to command line if run as standalone.
     raise(exception)

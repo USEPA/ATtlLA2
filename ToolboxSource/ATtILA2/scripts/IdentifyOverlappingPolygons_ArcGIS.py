@@ -6,8 +6,10 @@
 import sys
 import arcpy
 arcpy.env.overwriteOutput = "True"
-from pylet.arcpyutil import parameters
-from pylet.arcpyutil import polygons
+#from pylet.utils import parameters
+from ..ATtILA2.utils import parameters
+#from pylet.utils import polygons
+from ..ATtILA2.utils import polygons
 overlaplist = []
 flist = []
 nonoverlapGroupDict = {}

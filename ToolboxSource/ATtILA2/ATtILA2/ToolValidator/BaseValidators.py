@@ -10,8 +10,8 @@ from xml.dom.minidom import parse
 from glob import glob 
 from ATtILA2.constants import globalConstants
 from ATtILA2.constants import validatorConstants
-import pylet.lcc.constants as lccConstants
-from pylet.lcc import LandCoverClassification, LandCoverCoefficient
+from  ..utils.lcc import constants as lccConstants
+from ..utils.lcc import LandCoverClassification, LandCoverCoefficient
     
 class ProportionsValidator(object):
     """ Class for inheritance by ToolValidator Only
@@ -85,7 +85,7 @@ class ProportionsValidator(object):
     
     def __init__(self):
         """ ESRI - Initialize ToolValidator class"""
-        
+ 
         # Load metric constants        
         self.inputIdFieldTypes = validatorConstants.inputIdFieldTypes
         self.lccSchemeUserOption = validatorConstants.userOption
@@ -199,7 +199,7 @@ class ProportionsValidator(object):
             This method is called whenever a parameter has been changed.
         
         """
-        
+        #arcpy.AddMessage("\n\n\updateParameters 0\n\n\n");
         if not self.initialized:
             self.initializeParameters()
 
@@ -661,7 +661,7 @@ class NoLccFileValidator(object):
             This method is called whenever a parameter has been changed.
         
         """
-        
+       
         if not self.initialized:
             self.initializeParameters()
 

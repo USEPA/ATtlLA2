@@ -3,19 +3,29 @@
 '''
 import os
 import arcpy
-import errors
-import setupAndRestore
-from pylet import lcc
-from pylet.arcpyutil import polygons
-from pylet.arcpyutil import fields
-from pylet.arcpyutil.messages import AddMsg
-from pylet.datetimeutil import DateTimer
-
-from ATtILA2.constants import metricConstants
-from ATtILA2.constants import globalConstants
-from ATtILA2.constants import errorConstants
-from ATtILA2 import utils
-from ATtILA2.utils.tabarea import TabulateAreaTable
+from . import errors
+from . import setupAndRestore
+#from pylet import lcc
+from .utils import lcc
+from .utils import polygons
+from .utils import fields
+from .utils import table
+from .utils import calculate
+from .utils import settings
+from .utils import files
+from .utils import vector
+from .utils import environment
+from .utils import fields
+from .utils import parameters
+from .utils import raster
+from .utils import calculate
+from .utils.messages import AddMsg
+from .datetimeutil import DateTimer
+from .constants import metricConstants
+from .constants import globalConstants
+from .constants import errorConstants
+from . import utils
+from .utils.tabarea import TabulateAreaTable
 
 class metricCalc:
     """ This class contains the basic steps to perform a land cover metric calculation.
@@ -74,13 +84,13 @@ class metricCalc:
         # Perform additional housekeeping steps - this must occur after any LCGrid or inRUFeature replacement
 
         # alert user if the LCC XML document has any values within a class definition that are also tagged as 'excluded' in the values node.
-        utils.settings.checkExcludedValuesInClass(self.metricsBaseNameList, self.lccObj, self.lccClassesDict)
+        settings.checkExcludedValuesInClass(self.metricsBaseNameList, self.lccObj, self.lccClassesDict)
         # alert user if the land cover grid has values undefined in the LCC XML file
-        utils.settings.checkGridValuesInLCC(self.inLandCoverGrid, self.lccObj, self.ignoreHighest)
+        settings.checkGridValuesInLCC(self.inLandCoverGrid, self.lccObj, self.ignoreHighest)
         # alert user if the land cover grid cells are not square (default to size along x axis)
-        utils.settings.checkGridCellDimensions(self.inLandCoverGrid)
+        settings.checkGridCellDimensions(self.inLandCoverGrid)
         # if an OID type field is used for the Id field, create a new field; type integer. Otherwise copy the Id field
-        self.outIdField = utils.settings.getIdOutField(self.inReportingUnitFeature, self.reportingUnitIdField)
+        self.outIdField = settings.getIdOutField(self.inReportingUnitFeature, self.reportingUnitIdField)
 
         # If QAFIELDS option is checked, compile a dictionary with key:value pair of ZoneId:ZoneArea
         self.zoneAreaDict = None
@@ -88,14 +98,14 @@ class metricCalc:
             # Check to see if an outputGeorgraphicCoordinate system is set in the environments. If one is not specified
             # return the spatial reference for the land cover grid. Use the returned spatial reference to calculate the
             # area of the reporting unit's polygon features to store in the zoneAreaDict
-            self.outputSpatialRef = utils.settings.getOutputSpatialReference(self.inLandCoverGrid)
+            self.outputSpatialRef = settings.getOutputSpatialReference(self.inLandCoverGrid)
             self.zoneAreaDict = polygons.getMultiPartIdAreaDict(self.inReportingUnitFeature, self.reportingUnitIdField, self.outputSpatialRef)
 
 
     def _makeAttilaOutTable(self):
         AddMsg(self.timer.split() + " Constructing the ATtILA metric output table")
         # Internal function to construct the ATtILA metric output table
-        self.newTable, self.metricsFieldnameDict = utils.table.tableWriterByClass(self.outTable,
+        self.newTable, self.metricsFieldnameDict = table.tableWriterByClass(self.outTable,
                                                                                   self.metricsBaseNameList,
                                                                                   self.optionalGroupsList,
                                                                                   self.metricConst, self.lccObj,
@@ -110,7 +120,7 @@ class metricCalc:
         AddMsg(self.timer.split() + " Processing the tabulate area table and computing metric values")
         # Internal function to process the tabulate area table and compute metric values. Use values to populate the ATtILA output table
         # Default calculation is land cover proportions.  this may be overridden by some metrics.
-        utils.calculate.landCoverProportions(self.lccClassesDict, self.metricsBaseNameList, self.optionalGroupsList,
+        calculate.landCoverProportions(self.lccClassesDict, self.metricsBaseNameList, self.optionalGroupsList,
                                              self.metricConst, self.outIdField, self.newTable, self.tabAreaTable,
                                              self.metricsFieldnameDict, self.zoneAreaDict)
 
@@ -135,7 +145,7 @@ class metricCalc:
         self._calculateMetrics()
         
         # ensure cleanup occurs.
-        if self.tabAreaTable <> None:
+        if self.tabAreaTable != None:
             del self.tabAreaTable
 
 
@@ -143,18 +153,16 @@ def runLandCoverProportions(inReportingUnitFeature, reportingUnitIdField, inLand
                             metricsToRun, outTable, processingCellSize, snapRaster, optionalFieldGroups):
     """ Interface for script executing Land Cover Proportion Metrics """
 
+    
     try:
         # retrieve the attribute constants associated with this metric
         metricConst = metricConstants.lcpConstants()
-
         # Create new instance of metricCalc class to contain parameters
         lcpCalc = metricCalc(inReportingUnitFeature, reportingUnitIdField, inLandCoverGrid, lccFilePath,
                              metricsToRun, outTable, processingCellSize, snapRaster, optionalFieldGroups, metricConst)
-
         # Run Calculation
         lcpCalc.run()
-
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:
@@ -175,17 +183,19 @@ def runLandCoverOnSlopeProportions(inReportingUnitFeature, reportingUnitIdField,
         #If clipLCGrid is selected, clip the input raster to the extent of the reporting unit theme or the to the extent
         #of the selected reporting unit(s). If the metric is susceptible to edge-effects (e.g., core and edge metrics, 
         #patch metrics) extend the clip envelope an adequate distance.       
-        from pylet import arcpyutil
+        #from pylet import utils
+        from . import utils
+        
         from arcpy import env        
         _tempEnvironment1 = env.workspace
-        env.workspace = arcpyutil.environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
+        env.workspace = environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
 
         if clipLCGrid == "true":
             timer = DateTimer()
             AddMsg(timer.start() + " Reducing input Land cover grid to smallest recommended size...")
             namePrefix = "%s_%s" % (metricConst.shortName, os.path.basename(inLandCoverGrid))
             scratchName = arcpy.CreateScratchName(namePrefix,"","RasterDataset")
-            inLandCoverGrid = utils.raster.clipGridByBuffer(inReportingUnitFeature, scratchName, inLandCoverGrid)
+            inLandCoverGrid = raster.clipGridByBuffer(inReportingUnitFeature, scratchName, inLandCoverGrid)
             AddMsg(timer.split() + " Reduction complete")
 
         
@@ -194,7 +204,7 @@ def runLandCoverOnSlopeProportions(inReportingUnitFeature, reportingUnitIdField,
             # Subclass that overrides specific functions for the LandCoverOnSlopeProportions calculation
             def _replaceLCGrid(self):
                 # replace the inLandCoverGrid
-                self.inLandCoverGrid = utils.raster.getIntersectOfGrids(self.lccObj, self.inLandCoverGrid, self.inSlopeGrid,
+                self.inLandCoverGrid = raster.getIntersectOfGrids(self.lccObj, self.inLandCoverGrid, self.inSlopeGrid,
                                                                    self.inSlopeThresholdValue,self.timer)
 
                 if self.saveIntermediates:
@@ -220,7 +230,7 @@ def runLandCoverOnSlopeProportions(inReportingUnitFeature, reportingUnitIdField,
         if clipLCGrid == "true":
             arcpy.Delete_management(scratchName) 
 
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:
@@ -233,8 +243,9 @@ def runPatchMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCoverGri
                           optionalFieldGroups, clipLCGrid):
     """ Interface for script executing Patch Metrics """
     
-    from ATtILA2.utils import settings
-    from pylet.arcpyutil import conversion
+    from .utils import settings
+    #from pylet.utils import conversion
+    from .utils import conversion
 
     cleanupList = [] # This is an empty list object that will contain tuples of the form (function, arguments) as needed for cleanup
     try:
@@ -268,7 +279,7 @@ def runPatchMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCoverGri
         # Check to see if an outputGeorgraphicCoordinate system is set in the environments. If one is not specified
         # return the spatial reference for the land cover grid. Use the returned spatial reference to calculate the
         # area of the reporting unit's polygon features to store in the zoneAreaDict
-        outputSpatialRef = utils.settings.getOutputSpatialReference(inLandCoverGrid)
+        outputSpatialRef = settings.getOutputSpatialReference(inLandCoverGrid)
 
         # Compile a dictionary with key:value pair of ZoneId:ZoneArea
         zoneAreaDict = polygons.getMultiPartIdAreaDict(inReportingUnitFeature, reportingUnitIdField, outputSpatialRef)
@@ -283,17 +294,17 @@ def runPatchMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCoverGri
             raise errors.attilaException(errorConstants.linearUnitConversionError)
         
         # alert user if the LCC XML document has any values within a class definition that are also tagged as 'excluded' in the values node.
-        utils.settings.checkExcludedValuesInClass(metricsBaseNameList, lccObj, lccClassesDict)
+        settings.checkExcludedValuesInClass(metricsBaseNameList, lccObj, lccClassesDict)
         
         # alert user if the land cover grid has values undefined in the LCC XML file
-        utils.settings.checkGridValuesInLCC(inLandCoverGrid, lccObj)
+        settings.checkGridValuesInLCC(inLandCoverGrid, lccObj)
         
         # if an OID type field is used for the Id field, create a new field; type integer. Otherwise copy the Id field
-        outIdField = utils.settings.getIdOutField(inReportingUnitFeature, reportingUnitIdField)
+        outIdField = settings.getIdOutField(inReportingUnitFeature, reportingUnitIdField)
          
         #Create the output table outside of metricCalc so that result can be added for multiple metrics
         AddMsg(timer.split() + " Creating output table")
-        newtable, metricsFieldnameDict = utils.table.tableWriterByClass(outTable, metricsBaseNameList,optionalGroupsList, 
+        newtable, metricsFieldnameDict = table.tableWriterByClass(outTable, metricsBaseNameList,optionalGroupsList, 
                                                                                   metricConst, lccObj, outIdField, 
                                                                                   metricConst.additionalFields)
                 
@@ -304,13 +315,14 @@ def runPatchMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCoverGri
         if clipLCGrid == "true":
             AddMsg(timer.split() + "Reducing input Land cover grid to smallest recommended size...")
             
-            from pylet import arcpyutil
+            #from pylet import utils
+            from . import utils
             from arcpy import env        
             _startingWorkSpace= env.workspace
-            env.workspace = arcpyutil.environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
+            env.workspace = environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
             namePrefix = "%s_%s" % (metricConst.shortName, os.path.basename(inLandCoverGrid))
             scratchName = arcpy.CreateScratchName(namePrefix,"","RasterDataset")
-            inLandCoverGrid = utils.raster.clipGridByBuffer(inReportingUnitFeature, scratchName, inLandCoverGrid, inMaxSeparation)
+            inLandCoverGrid = raster.clipGridByBuffer(inReportingUnitFeature, scratchName, inLandCoverGrid, inMaxSeparation)
             env.workspace = _startingWorkSpace
             
             AddMsg(timer.split() + " Reduction complete")
@@ -324,7 +336,7 @@ def runPatchMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCoverGri
                 def _replaceLCGrid(self):
                     # replace the inLandCoverGrid
                     AddMsg(self.timer.split() + " Creating Patch Grid for Class:"+m)
-                    self.inLandCoverGrid = utils.raster.createPatchRaster(m, self.lccObj, self.lccClassesDict, self.inLandCoverGrid,
+                    self.inLandCoverGrid = raster.createPatchRaster(m, self.lccObj, self.lccClassesDict, self.inLandCoverGrid,
                                                                           self.metricConst, self.maxSeparation,
                                                                           self.minPatchSize, processingCellSize, timer)
                     AddMsg(self.timer.split() + " Patch Grid Completed for Class:"+m)
@@ -342,7 +354,7 @@ def runPatchMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCoverGri
                     # Perform additional housekeeping steps - this must occur after any LCGrid or inRUFeature replacement
                     # Removed alert about lcc codes since the lcc values are not used in the Core/Edge calculations
                     # alert user if the land cover grid cells are not square (default to size along x axis)
-                    utils.settings.checkGridCellDimensions(self.inLandCoverGrid)
+                    settings.checkGridCellDimensions(self.inLandCoverGrid)
                         
                 # Update calculateMetrics to populate Patch Metrics and MDCP
                 def _calculateMetrics(self):
@@ -350,7 +362,7 @@ def runPatchMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCoverGri
                     AddMsg(self.timer.split() + " Calculating Patch Numbers by Reporting Unit for Class:" + m)
                      
                     # calculate Patch metrics
-                    self.pmResultsDict = utils.calculate.getPatchNumbers(self.outIdField, self.newTable, self.reportingUnitIdField, self.metricsFieldnameDict,
+                    self.pmResultsDict = calculate.getPatchNumbers(self.outIdField, self.newTable, self.reportingUnitIdField, self.metricsFieldnameDict,
                                                       self.zoneAreaDict, self.metricConst, m, self.inReportingUnitFeature, 
                                                       self.inLandCoverGrid, processingCellSize, conversionFactor)
  
@@ -365,19 +377,19 @@ def runPatchMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCoverGri
                         
                         # create and name intermediate data layers
                         rastoPolyFeatureName = ("%s_%s_%s" % (metricConst.shortName, outClassName, metricConst.rastertoPoly))
-                        rastoPolyFeature = utils.files.nameIntermediateFile([rastoPolyFeatureName, "FeatureClass"], cleanupList)
+                        rastoPolyFeature = files.nameIntermediateFile([rastoPolyFeatureName, "FeatureClass"], cleanupList)
                         rasterCentroidFeatureName = ("%s_%s_%s" % (metricConst.shortName, outClassName, metricConst.rastertoPoint))
-                        rasterCentroidFeature = utils.files.nameIntermediateFile([rasterCentroidFeatureName, "FeatureClass"], cleanupList)
+                        rasterCentroidFeature = files.nameIntermediateFile([rasterCentroidFeatureName, "FeatureClass"], cleanupList)
                         polyDissolvedPatchFeatureName = ("%s_%s_%s" % (metricConst.shortName, outClassName, metricConst.polyDissolve))
-                        polyDissolvedFeature = utils.files.nameIntermediateFile([polyDissolvedPatchFeatureName, "FeatureClass"], cleanupList)
-                        nearPatchTable = utils.files.nameIntermediateFile([outClassName + metricConst.nearTable, "Dataset"], cleanupList)            
+                        polyDissolvedFeature = files.nameIntermediateFile([polyDissolvedPatchFeatureName, "FeatureClass"], cleanupList)
+                        nearPatchTable = files.nameIntermediateFile([outClassName + metricConst.nearTable, "Dataset"], cleanupList)            
                         
                         # run the calculation script. get the results back as a dictionary keyed to RU id values
-                        self.mdcpDict =  utils.vector.tabulateMDCP(self.inLandCoverGrid, self.inReportingUnitFeature, 
+                        self.mdcpDict =  vector.tabulateMDCP(self.inLandCoverGrid, self.inReportingUnitFeature, 
                                                                    self.reportingUnitIdField, rastoPolyFeature, rasterCentroidFeature, polyDissolvedFeature,
                                                                    nearPatchTable, self.zoneAreaDict, timer, self.pmResultsDict)
                         # place the results into the output table
-                        utils.calculate.getMDCP(self.outIdField, self.newTable, self.mdcpDict, self.optionalGroupsList,
+                        calculate.getMDCP(self.outIdField, self.newTable, self.mdcpDict, self.optionalGroupsList,
                                                  outClassName)
                         
                         AddMsg(self.timer.split() + " MDCP analysis has been run for Class:" + m)
@@ -409,7 +421,7 @@ def runPatchMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCoverGri
         if clipLCGrid == "true":
             arcpy.Delete_management(scratchName)     
     
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:
@@ -441,33 +453,34 @@ def runCoreAndEdgeMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCo
         # get the dictionary with the LCC CLASSES attributes
         lccClassesDict = lccObj.classes
         
-        outIdField = utils.settings.getIdOutField(inReportingUnitFeature, reportingUnitIdField)
+        outIdField = settings.getIdOutField(inReportingUnitFeature, reportingUnitIdField)
         
         # alert user if the LCC XML document has any values within a class definition that are also tagged as 'excluded' in the values node.
-        utils.settings.checkExcludedValuesInClass(metricsBaseNameList, lccObj, lccClassesDict)
+        settings.checkExcludedValuesInClass(metricsBaseNameList, lccObj, lccClassesDict)
         
         # alert user if the land cover grid has values undefined in the LCC XML file
-        utils.settings.checkGridValuesInLCC(inLandCoverGrid, lccObj)
+        settings.checkGridValuesInLCC(inLandCoverGrid, lccObj)
      
         #Create the output table outside of metricCalc so that result can be added for multiple metrics
-        newtable, metricsFieldnameDict = utils.table.tableWriterByClass(outTable, metricsBaseNameList,optionalGroupsList, 
+        newtable, metricsFieldnameDict = table.tableWriterByClass(outTable, metricsBaseNameList,optionalGroupsList, 
                                                                                   metricConst, lccObj, outIdField, 
                                                                                   metricConst.additionalFields)
  
         #If clipLCGrid is selected, clip the input raster to the extent of the reporting unit theme or the to the extent
         #of the selected reporting unit(s). If the metric is susceptible to edge-effects (e.g., core and edge metrics, 
         #patch metrics) extend the clip envelope an adequate distance.       
-        from pylet import arcpyutil
+        #from pylet import utils
+        from . import utils
         from arcpy import env        
         _tempEnvironment1 = env.workspace
-        env.workspace = arcpyutil.environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
+        env.workspace = environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
 
         if clipLCGrid == "true":
             timer = DateTimer()
             AddMsg(timer.start() + " Reducing input Land cover grid to smallest recommended size...")
             namePrefix = "%s_%s" % (metricConst.shortName, os.path.basename(inLandCoverGrid))
             scratchName = arcpy.CreateScratchName(namePrefix,"","RasterDataset")
-            inLandCoverGrid = utils.raster.clipGridByBuffer(inReportingUnitFeature, scratchName, inLandCoverGrid, inEdgeWidth)
+            inLandCoverGrid = raster.clipGridByBuffer(inReportingUnitFeature, scratchName, inLandCoverGrid, inEdgeWidth)
             AddMsg(timer.split() + " Reduction complete")
         
         # Run metric calculate for each metric in list
@@ -478,7 +491,7 @@ def runCoreAndEdgeMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCo
                 def _replaceLCGrid(self):
                     # replace the inLandCoverGrid
                     AddMsg(self.timer.split() + " Generating core and edge grid for Class: " + m.upper())
-                    self.inLandCoverGrid = utils.raster.getEdgeCoreGrid(m, self.lccObj, self.lccClassesDict, self.inLandCoverGrid, 
+                    self.inLandCoverGrid = raster.getEdgeCoreGrid(m, self.lccObj, self.lccClassesDict, self.inLandCoverGrid, 
                                                                         self.inEdgeWidth, processingCellSize,
                                                                         self.timer, metricConst.shortName)
                     AddMsg(self.timer.split() + " Core and edge grid complete")
@@ -521,17 +534,17 @@ def runCoreAndEdgeMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCo
                     # Perform additional housekeeping steps - this must occur after any LCGrid or inRUFeature replacement
 
                     # alert user if the land cover grid cells are not square (default to size along x axis)
-                    utils.settings.checkGridCellDimensions(self.inLandCoverGrid)
+                    settings.checkGridCellDimensions(self.inLandCoverGrid)
                     # if an OID type field is used for the Id field, create a new field; type integer. Otherwise copy the Id field
-                    self.outIdField = utils.settings.getIdOutField(self.inReportingUnitFeature, self.reportingUnitIdField)
+                    self.outIdField = settings.getIdOutField(self.inReportingUnitFeature, self.reportingUnitIdField)
                 
                     # If QAFIELDS option is checked, compile a dictionary with key:value pair of ZoneId:ZoneArea
                     self.zoneAreaDict = None
                     if globalConstants.qaCheckName in self.optionalGroupsList:
                         # Check to see if an outputGeorgraphicCoordinate system is set in the environments. If one is not specified
                         # return the spatial reference for the land cover grid. Use the returned spatial reference to calculate the
-                        # area of the reporting unit's polygon features to store in the zoneAreaDict
-                        self.outputSpatialRef = utils.settings.getOutputSpatialReference(self.inLandCoverGrid)
+                        # area of the reporting s polygon features to store in the zoneAreaDict
+                        self.outputSpatialRef = settings.getOutputSpatialReference(self.inLandCoverGrid)
                         self.zoneAreaDict = polygons.getMultiPartIdAreaDict(self.inReportingUnitFeature, self.reportingUnitIdField, self.outputSpatialRef)
 
                 # Update calculateMetrics to calculate Core to Edge Ratio
@@ -540,7 +553,7 @@ def runCoreAndEdgeMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCo
                     self.metricsFieldnameDict = metricsFieldnameDict
 
                     # calculate Core to Edge ratio
-                    utils.calculate.getCoreEdgeRatio(self.outIdField, self.newTable, self.tabAreaTable, self.metricsFieldnameDict,
+                    calculate.getCoreEdgeRatio(self.outIdField, self.newTable, self.tabAreaTable, self.metricsFieldnameDict,
                                                       self.zoneAreaDict, self.metricConst, m)
                     AddMsg(self.timer.split() + " Core/Edge Ratio calculations are complete for class: " + m)
 
@@ -565,7 +578,7 @@ def runCoreAndEdgeMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCo
         if clipLCGrid == "true":
             arcpy.Delete_management(scratchName)
 
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:
@@ -597,14 +610,14 @@ def runRiparianLandCoverProportions(inReportingUnitFeature, reportingUnitIdField
                     AddMsg("Duplicate ID values found in reporting unit feature. Forming multipart features...")
                     # Get a unique name with full path for the output features - will default to current workspace:
                     self.namePrefix = self.metricConst.shortName + "_Dissolve"+self.inBufferDistance.split()[0]
-                    self.dissolveName = utils.files.nameIntermediateFile([self.namePrefix,"FeatureClass"], rlcpCalc.cleanupList)
+                    self.dissolveName = uti.files.nameIntermediateFile([self.namePrefix,"FeatureClass"], rlcpCalc.cleanupList)
                     self.inReportingUnitFeature = arcpy.Dissolve_management(self.inReportingUnitFeature, self.dissolveName, 
                                                                             self.reportingUnitIdField,"","MULTI_PART")
                     
                 # Generate a default filename for the buffer feature class
                 self.bufferName = self.metricConst.shortName + "_Buffer"+self.inBufferDistance.split()[0]
                 # Generate the buffer area to use in the metric calculation
-                self.inReportingUnitFeature, self.cleanupList = utils.vector.bufferFeaturesByIntersect(self.inStreamFeatures,
+                self.inReportingUnitFeature, self.cleanupList = vector.bufferFeaturesByIntersect(self.inStreamFeatures,
                                                                                      self.inReportingUnitFeature,
                                                                                      self.bufferName, self.inBufferDistance,
                                                                                      self.reportingUnitIdField,
@@ -623,7 +636,7 @@ def runRiparianLandCoverProportions(inReportingUnitFeature, reportingUnitIdField
         # Run Calculation
         rlcpCalc.run()      
        
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:
@@ -661,7 +674,7 @@ def runSamplePointLandCoverProportions(inReportingUnitFeature, reportingUnitIdFi
                 # Generate a default filename for the buffer feature class
                 self.bufferName = self.metricConst.shortName + "_Buffer"+self.inBufferDistance.split()[0]
                 # Buffer the points and use the output as the new reporting units
-                self.inReportingUnitFeature = utils.vector.bufferFeaturesByID(self.inPointFeatures,
+                self.inReportingUnitFeature = vector.bufferFeaturesByID(self.inPointFeatures,
                                                                               self.inReportingUnitFeature,
                                                                               self.bufferName,self.inBufferDistance,
                                                                               self.reportingUnitIdField,self.ruLinkField)
@@ -689,7 +702,7 @@ def runSamplePointLandCoverProportions(inReportingUnitFeature, reportingUnitIdFi
             if splcpCalc.duplicateIds:
                 arcpy.Delete_management(splcpCalc.dissolveName)
 
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:
@@ -701,26 +714,26 @@ def runLandCoverCoefficientCalculator(inReportingUnitFeature, reportingUnitIdFie
                                       optionalFieldGroups):
     """Interface for script executing Land Cover Coefficient Calculator"""
 
-    from ATtILA2.utils import settings
-    from pylet.arcpyutil import conversion
+    from .utils import settings
+    #from pylet.utils import conversion
+    from .utils import conversion
 
     try:
         # retrieve the attribute constants associated with this metric
         metricConst = metricConstants.lcccConstants()
-
         # Create new LCC metric calculation subclass
         class metricCalcLCC(metricCalc):
             # Subclass that overrides specific functions for the land Cover Coefficient calculation
             def _makeAttilaOutTable(self):
                 # Construct the ATtILA metric output table
-                self.newTable, self.metricsFieldnameDict = utils.table.tableWriterByCoefficient(self.outTable,
+                self.newTable, self.metricsFieldnameDict = table.tableWriterByCoefficient(self.outTable,
                                                                                                 self.metricsBaseNameList,
                                                                                                 self.optionalGroupsList,
                                                                                                 self.metricConst, self.lccObj,
                                                                                                 self.outIdField)
             def _calculateMetrics(self):
                 # process the tabulate area table and compute metric values. Use values to populate the ATtILA output table
-                utils.calculate.landCoverCoefficientCalculator(self.lccObj.values, self.metricsBaseNameList,
+                calculate.landCoverCoefficientCalculator(self.lccObj.values, self.metricsBaseNameList,
                                                                self.optionalGroupsList, self.metricConst, self.outIdField,
                                                                self.newTable, self.tabAreaTable, self.metricsFieldnameDict,
                                                                self.zoneAreaDict, self.conversionFactor)
@@ -745,7 +758,7 @@ def runLandCoverCoefficientCalculator(inReportingUnitFeature, reportingUnitIdFie
         # Run calculation
         lccCalc.run()
 
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:
@@ -758,7 +771,8 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
                              optionalFieldGroups="#"):
     """Interface for script executing Road Density Calculator"""
     from arcpy import env
-    from pylet import arcpyutil
+    #from pylet import utils
+    from . import utils
     cleanupList = [] # This is an empty list object that will contain tuples of the form (function, arguments) as needed for cleanup
     try:
         # Work on making as generic as possible
@@ -770,7 +784,7 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
         metricConst = metricConstants.rdmConstants()
         # Set the output workspace
         _tempEnvironment1 = env.workspace
-        env.workspace = arcpyutil.environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
+        env.workspace = environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
         _tempEnvironment4 = env.outputMFlag
         _tempEnvironment5 = env.outputZFlag
         # Streams and road crossings script fails in certain circumstances when M (linear referencing dimension) is enabled.
@@ -778,7 +792,7 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
         env.outputMFlag = "Disabled"
         env.outputZFlag = "Disabled"
         # Strip the description from the "additional option" and determine whether intermediates are stored.
-        processed = arcpyutil.parameters.splitItemsAndStripDescriptions(optionalFieldGroups, globalConstants.descriptionDelim)
+        processed = parameters.splitItemsAndStripDescriptions(optionalFieldGroups, globalConstants.descriptionDelim)
         if globalConstants.intermediateName in processed:
             msg = "\nIntermediates are stored in this directory: {0}\n"
             arcpy.AddMessage(msg.format(env.workspace)) 
@@ -792,21 +806,21 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
         # values and will also keep only the OID, shape, and reportingUnitIdField fields
         desc = arcpy.Describe(inReportingUnitFeature)
         tempName = "%s_%s" % (metricConst.shortName, desc.baseName)
-        tempReportingUnitFeature = utils.files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
+        tempReportingUnitFeature = files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
         AddMsg(timer.split() + " Creating temporary copy of " + desc.name)
         inReportingUnitFeature = arcpy.Dissolve_management(inReportingUnitFeature, os.path.basename(tempReportingUnitFeature), 
                                                            reportingUnitIdField,"","MULTI_PART")
 
         # Get the field properties for the unitID, this will be frequently used
         # If the field is numeric, it creates a text version of the field.
-        uIDField = utils.settings.processUIDField(inReportingUnitFeature,reportingUnitIdField)
+        uIDField = settings.processUIDField(inReportingUnitFeature,reportingUnitIdField)
 
         AddMsg(timer.split() + " Calculating reporting unit area")
         # Add a field to the reporting units to hold the area value in square kilometers
         # Check for existence of field.
         fieldList = arcpy.ListFields(inReportingUnitFeature,metricConst.areaFieldname)
         # Add and populate the area field (or just recalculate if it already exists
-        unitArea = utils.vector.addAreaField(inReportingUnitFeature,metricConst.areaFieldname)
+        unitArea = vector.addAreaField(inReportingUnitFeature,metricConst.areaFieldname)
         if not fieldList: # if the list of fields that exactly match the validated fieldname is empty...
             if not cleanupList[0] == "KeepIntermediates":
                 # ...add this to the list of items to clean up at the end.
@@ -821,17 +835,17 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
         desc = arcpy.Describe(inRoadFeature)
         if desc.HasM or desc.HasZ:
             tempName = "%s_%s" % (metricConst.shortName, arcpy.Describe(inRoadFeature).baseName)
-            tempLineFeature = utils.files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
+            tempLineFeature = files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
             AddMsg(timer.split() + " Creating temporary copy of " + desc.name)
             inRoadFeature = arcpy.FeatureClassToFeatureClass_conversion(inRoadFeature, env.workspace, os.path.basename(tempLineFeature))
 
 
         AddMsg(timer.split() + " Calculating road density")
         # Get a unique name for the merged roads and prep for cleanup
-        mergedRoads = utils.files.nameIntermediateFile(metricConst.roadsByReportingUnitName,cleanupList)
+        mergedRoads = files.nameIntermediateFile(metricConst.roadsByReportingUnitName,cleanupList)
 
         # Calculate the density of the roads by reporting unit.
-        mergedRoads, roadLengthFieldName = utils.calculate.lineDensityCalculator(inRoadFeature,inReportingUnitFeature,
+        mergedRoads, roadLengthFieldName = calculate.lineDensityCalculator(inRoadFeature,inReportingUnitFeature,
                                                                                  uIDField,unitArea,mergedRoads,
                                                                                  metricConst.roadDensityFieldName,
                                                                                  metricConst.roadLengthFieldName,
@@ -843,33 +857,33 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
         arcpy.TableToTable_conversion(inReportingUnitFeature,os.path.dirname(outTable),os.path.basename(outTable))
         # Get a list of unique road class values
         if roadClassField:
-            classValues = arcpyutil.fields.getUniqueValues(mergedRoads,roadClassField)
+            classValues = fields.getUniqueValues(mergedRoads,roadClassField)
         else:
             classValues = []
         # Compile a list of fields that will be transferred from the merged roads feature class into the output table
         fromFields = [roadLengthFieldName, metricConst.roadDensityFieldName,metricConst.totalImperviousAreaFieldName]
         # Transfer the values to the output table, pivoting the class values into new fields if necessary.
-        utils.table.transferField(mergedRoads,outTable,fromFields,fromFields,uIDField.name,roadClassField,classValues)
+        table.transferField(mergedRoads,outTable,fromFields,fromFields,uIDField.name,roadClassField,classValues)
         
         # If the Streams By Roads (STXRD) box is checked...
-        if streamRoadCrossings and streamRoadCrossings <> "false":
+        if streamRoadCrossings and streamRoadCrossings != "false":
             # If necessary, create a copy of the stream feature class to remove M values.  The env.outputMFlag will work
             # for most datasets except for shapefiles with M and Z values. The Z value will keep the M value from being stripped
             # off. This is more appropriate than altering the user's input data.
             desc = arcpy.Describe(inStreamFeature)
             if desc.HasM or desc.HasZ:
                 tempName = "%s_%s" % (metricConst.shortName, desc.baseName)
-                tempLineFeature = utils.files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
+                tempLineFeature = files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
                 AddMsg(timer.split() + " Creating temporary copy of " + desc.name)
                 inStreamFeature = arcpy.FeatureClassToFeatureClass_conversion(inStreamFeature, env.workspace, os.path.basename(tempLineFeature))
 
             
             AddMsg(timer.split() + " Calculating Stream and Road Crossings (STXRD)")
             # Get a unique name for the merged streams:
-            mergedStreams = utils.files.nameIntermediateFile(metricConst.streamsByReportingUnitName,cleanupList)
+            mergedStreams = files.nameIntermediateFile(metricConst.streamsByReportingUnitName,cleanupList)
 
             # Calculate the density of the streams by reporting unit.
-            mergedStreams, streamLengthFieldName = utils.calculate.lineDensityCalculator(inStreamFeature,
+            mergedStreams, streamLengthFieldName = calculate.lineDensityCalculator(inStreamFeature,
                                                                                          inReportingUnitFeature,
                                                                                          uIDField,
                                                                                          unitArea,mergedStreams,
@@ -877,14 +891,14 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
                                                                                          metricConst.streamLengthFieldName)
 
             # Get a unique name for the road/stream intersections:
-            roadStreamMultiPoints = utils.files.nameIntermediateFile(metricConst.roadStreamMultiPoints,cleanupList)
+            roadStreamMultiPoints = files.nameIntermediateFile(metricConst.roadStreamMultiPoints,cleanupList)
             # Get a unique name for the points of crossing:
-            roadStreamIntersects = utils.files.nameIntermediateFile(metricConst.roadStreamIntersects,cleanupList)
+            roadStreamIntersects = files.nameIntermediateFile(metricConst.roadStreamIntersects,cleanupList)
             # Get a unique name for the roads by streams summary table:
-            roadStreamSummary = utils.files.nameIntermediateFile(metricConst.roadStreamSummary,cleanupList)
+            roadStreamSummary = files.nameIntermediateFile(metricConst.roadStreamSummary,cleanupList)
             
             # Perform the roads/streams intersection and calculate the number of crossings and crossings per km
-            utils.vector.findIntersections(mergedRoads,inStreamFeature,mergedStreams,uIDField,roadStreamMultiPoints,
+            vector.findIntersections(mergedRoads,inStreamFeature,mergedStreams,uIDField,roadStreamMultiPoints,
                                            roadStreamIntersects,roadStreamSummary,streamLengthFieldName,
                                            metricConst.xingsPerKMFieldName,roadClassField)
             
@@ -894,15 +908,15 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
             fromFields = [streamLengthFieldName, metricConst.streamDensityFieldName]
             # Transfer the values to the output table, pivoting the class values into new fields if necessary.
             # Possible to add stream class values here if desired.
-            utils.table.transferField(mergedStreams,outTable,fromFields,fromFields,uIDField.name,None)
+            table.transferField(mergedStreams,outTable,fromFields,fromFields,uIDField.name,None)
             # Transfer crossings fields - note the renaming of the count field.
             fromFields = ["FREQUENCY", metricConst.xingsPerKMFieldName]
             toFields = [metricConst.streamRoadXingsCountFieldname,metricConst.xingsPerKMFieldName]
             # Transfer the values to the output table, pivoting the class values into new fields if necessary.
-            utils.table.transferField(roadStreamSummary,outTable,fromFields,toFields,uIDField.name,roadClassField,classValues)
+            table.transferField(roadStreamSummary,outTable,fromFields,toFields,uIDField.name,roadClassField,classValues)
             
 
-        if roadsNearStreams and roadsNearStreams <> "false":
+        if roadsNearStreams and roadsNearStreams != "false":
             AddMsg(timer.split() + " Calculating Roads Near Streams (RNS)")
             if not streamRoadCrossings or streamRoadCrossings == "false":  # In case merged streams haven't already been calculated:
                 # Create a copy of the stream feature class, if necessary, to remove M values.  The env.outputMFlag will work
@@ -911,40 +925,40 @@ def runRoadDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inRoa
                 desc = arcpy.Describe(inStreamFeature)
                 if desc.HasM or desc.HasZ:
                     tempName = "%s_%s" % (metricConst.shortName, desc.baseName)
-                    tempLineFeature = utils.files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
+                    tempLineFeature = files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
                     AddMsg(timer.split() + " Creating temporary copy of " + desc.name)
                     inStreamFeature = arcpy.FeatureClassToFeatureClass_conversion(inStreamFeature, env.workspace, os.path.basename(tempLineFeature))
                 
                 # Get a unique name for the merged streams:
-                mergedStreams = utils.files.nameIntermediateFile(metricConst.streamsByReportingUnitName,cleanupList)
+                mergedStreams = files.nameIntermediateFile(metricConst.streamsByReportingUnitName,cleanupList)
                 # Calculate the density of the streams by reporting unit.
-                mergedStreams, streamLengthFieldName = utils.calculate.lineDensityCalculator(inStreamFeature,
+                mergedStreams, streamLengthFieldName = calculate.lineDensityCalculator(inStreamFeature,
                                                                                              inReportingUnitFeature,
                                                                                              uIDField,unitArea,mergedStreams,
                                                                                              metricConst.streamDensityFieldName,
                                                                                              metricConst.streamLengthFieldName)
             # Get a unique name for the buffered streams:
-            streamBuffer = utils.files.nameIntermediateFile(metricConst.streamBuffers,cleanupList)
+            streamBuffer = files.nameIntermediateFile(metricConst.streamBuffers,cleanupList)
             # Set a unique name for the undissolved  road/stream buffer intersections
-            tmp1RdsNearStrms = utils.files.nameIntermediateFile(metricConst.tmp1RNS,cleanupList)
+            tmp1RdsNearStrms = files.nameIntermediateFile(metricConst.tmp1RNS,cleanupList)
             # Set a unique name for the undissolved  road/stream buffer intersections with reporting unit IDs attached
-            tmp2RdsNearStrms = utils.files.nameIntermediateFile(metricConst.tmp2RNS,cleanupList)
+            tmp2RdsNearStrms = files.nameIntermediateFile(metricConst.tmp2RNS,cleanupList)
             # Get a unique name for the dissolved road/stream intersections:
-            roadsNearStreams = utils.files.nameIntermediateFile(metricConst.roadsNearStreams,cleanupList)
+            roadsNearStreams = files.nameIntermediateFile(metricConst.roadsNearStreams,cleanupList)
             
             # append the buffer distance to the rns field name base
             distString = bufferDistance.split()[0]
             rnsFieldName = metricConst.rnsFieldName+distString
 
-            utils.vector.roadsNearStreams(inStreamFeature, mergedStreams, bufferDistance, inRoadFeature, inReportingUnitFeature, streamLengthFieldName,uIDField, streamBuffer, 
+            vector.roadsNearStreams(inStreamFeature, mergedStreams, bufferDistance, inRoadFeature, inReportingUnitFeature, streamLengthFieldName,uIDField, streamBuffer, 
                                           tmp1RdsNearStrms, tmp2RdsNearStrms, roadsNearStreams, rnsFieldName,metricConst.roadLengthFieldName, roadClassField)
             # Transfer values to final output table.
             AddMsg(timer.split() + " Compiling calculated values into output table")
             fromFields = [rnsFieldName]
             # Transfer the values to the output table, pivoting the class values into new fields if necessary.
-            utils.table.transferField(roadsNearStreams,outTable,fromFields,fromFields,uIDField.name,roadClassField,classValues)
+            table.transferField(roadsNearStreams,outTable,fromFields,fromFields,uIDField.name,roadClassField,classValues)
     
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:
@@ -961,7 +975,8 @@ def runStreamDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inL
                                optionalFieldGroups="#"):
     """Interface for script executing Road Density Calculator"""
     from arcpy import env
-    from pylet import arcpyutil
+    #from pylet import utils
+    from . import utils
     cleanupList = [] # This is an empty list object that will contain tuples of the form (function, arguments) as needed for cleanup
     try:
         # Work on making as generic as possible
@@ -973,7 +988,7 @@ def runStreamDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inL
         metricConst = metricConstants.sdmConstants()
         # Set the output workspace
         _tempEnvironment1 = env.workspace
-        env.workspace = arcpyutil.environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
+        env.workspace = environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
         _tempEnvironment4 = env.outputMFlag
         _tempEnvironment5 = env.outputZFlag
         # Streams and road crossings script fails in certain circumstances when M (linear referencing dimension) is enabled.
@@ -981,7 +996,7 @@ def runStreamDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inL
         env.outputMFlag = "Disabled"
         env.outputZFlag = "Disabled"
         # Strip the description from the "additional option" and determine whether intermediates are stored.
-        processed = arcpyutil.parameters.splitItemsAndStripDescriptions(optionalFieldGroups, globalConstants.descriptionDelim)
+        processed = parameters.splitItemsAndStripDescriptions(optionalFieldGroups, globalConstants.descriptionDelim)
         if globalConstants.intermediateName in processed:
             msg = "\nIntermediates are stored in this directory: {0}\n"
             arcpy.AddMessage(msg.format(env.workspace))
@@ -995,20 +1010,20 @@ def runStreamDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inL
         # values and will also keep only the OID, shape, and reportingUnitIdField fields
         desc = arcpy.Describe(inReportingUnitFeature)
         tempName = "%s_%s" % (metricConst.shortName, desc.baseName)
-        tempReportingUnitFeature = utils.files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
+        tempReportingUnitFeature = files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
         AddMsg(timer.split() + " Creating temporary copy of " + desc.name)
         inReportingUnitFeature = arcpy.Dissolve_management(inReportingUnitFeature, os.path.basename(tempReportingUnitFeature), 
                                                            reportingUnitIdField,"","MULTI_PART")
 
         # Get the field properties for the unitID, this will be frequently used
-        uIDField = utils.settings.processUIDField(inReportingUnitFeature,reportingUnitIdField)
+        uIDField = settings.processUIDField(inReportingUnitFeature,reportingUnitIdField)
 
         AddMsg(timer.split() + " Calculating reporting unit area")
         # Add a field to the reporting units to hold the area value in square kilometers
         # Check for existence of field.
         fieldList = arcpy.ListFields(inReportingUnitFeature,metricConst.areaFieldname)
         # Add and populate the area field (or just recalculate if it already exists
-        unitArea = utils.vector.addAreaField(inReportingUnitFeature,metricConst.areaFieldname)
+        unitArea = vector.addAreaField(inReportingUnitFeature,metricConst.areaFieldname)
         if not fieldList: # if the list of fields that exactly match the validated fieldname is empty...
             if not cleanupList[0] == "KeepIntermediates":
                 # ...add this to the list of items to clean up at the end.
@@ -1023,17 +1038,17 @@ def runStreamDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inL
         desc = arcpy.Describe(inLineFeature)
         if desc.HasM or desc.HasZ:
             tempName = "%s_%s" % (metricConst.shortName, desc.baseName)
-            tempLineFeature = utils.files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
+            tempLineFeature = files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
             AddMsg(timer.split() + " Creating temporary copy of " + desc.name)
             inLineFeature = arcpy.FeatureClassToFeatureClass_conversion(inLineFeature, env.workspace, os.path.basename(tempLineFeature))
 
 
         AddMsg(timer.split() + " Calculating feature density")
         # Get a unique name for the merged roads and prep for cleanup
-        mergedInLines = utils.files.nameIntermediateFile(metricConst.linesByReportingUnitName,cleanupList)
+        mergedInLines = files.nameIntermediateFile(metricConst.linesByReportingUnitName,cleanupList)
 
         # Calculate the density of the roads by reporting unit.
-        mergedInLines, lineLengthFieldName = utils.calculate.lineDensityCalculator(inLineFeature,inReportingUnitFeature,
+        mergedInLines, lineLengthFieldName = calculate.lineDensityCalculator(inLineFeature,inReportingUnitFeature,
                                                                                  uIDField,unitArea,mergedInLines,
                                                                                  metricConst.lineDensityFieldName,
                                                                                  metricConst.lineLengthFieldName,
@@ -1044,15 +1059,15 @@ def runStreamDensityCalculator(inReportingUnitFeature, reportingUnitIdField, inL
         arcpy.TableToTable_conversion(inReportingUnitFeature,os.path.dirname(outTable),os.path.basename(outTable))
         # Get a list of unique road class values
         if lineCategoryField:
-            categoryValues = arcpyutil.fields.getUniqueValues(mergedInLines,lineCategoryField)
+            categoryValues = fields.getUniqueValues(mergedInLines,lineCategoryField)
         else:
             categoryValues = []
         # Compile a list of fields that will be transferred from the merged roads feature class into the output table
         fromFields = [lineLengthFieldName, metricConst.lineDensityFieldName]
         # Transfer the values to the output table, pivoting the class values into new fields if necessary.
-        utils.table.transferField(mergedInLines,outTable,fromFields,fromFields,uIDField.name,lineCategoryField,categoryValues)
+        table.transferField(mergedInLines,outTable,fromFields,fromFields,uIDField.name,lineCategoryField,categoryValues)
         
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:
@@ -1101,22 +1116,22 @@ def runLandCoverDiversity(inReportingUnitFeature, reportingUnitIdField, inLandCo
                 
             def _housekeeping(self):
                 # alert user if the land cover grid cells are not square (default to size along x axis)
-                utils.settings.checkGridCellDimensions(self.inLandCoverGrid)
+                settings.checkGridCellDimensions(self.inLandCoverGrid)
                 # if an OID type field is used for the Id field, create a new field; type integer. Otherwise copy the Id field
-                self.outIdField = utils.settings.getIdOutField(self.inReportingUnitFeature, self.reportingUnitIdField)
+                self.outIdField = settings.getIdOutField(self.inReportingUnitFeature, self.reportingUnitIdField)
                 # If QAFIELDS option is checked, compile a dictionary with key:value pair of ZoneId:ZoneArea
                 self.zoneAreaDict = None
                 if globalConstants.qaCheckName in self.optionalGroupsList:
                     # Check to see if an outputGeorgraphicCoordinate system is set in the environments. If one is not specified
                     # return the spatial reference for the land cover grid. Use the returned spatial reference to calculate the
                     # area of the reporting unit's polygon features to store in the zoneAreaDict
-                    self.outputSpatialRef = utils.settings.getOutputSpatialReference(self.inLandCoverGrid)
+                    self.outputSpatialRef = settings.getOutputSpatialReference(self.inLandCoverGrid)
                     self.zoneAreaDict = polygons.getMultiPartIdAreaDict(self.inReportingUnitFeature, self.reportingUnitIdField, self.outputSpatialRef)
                     
             def _makeAttilaOutTable(self):
                 AddMsg(self.timer.split() + " Constructing the ATtILA metric output table")
                 # Internal function to construct the ATtILA metric output table
-                self.newTable, self.metricsFieldnameDict = utils.table.tableWriterNoLcc(self.outTable,
+                self.newTable, self.metricsFieldnameDict = table.tableWriterNoLcc(self.outTable,
                                                                                         self.metricsBaseNameList,
                                                                                         self.optionalGroupsList,
                                                                                         self.metricConst,
@@ -1131,7 +1146,7 @@ def runLandCoverDiversity(inReportingUnitFeature, reportingUnitIdField, inLandCo
             def _calculateMetrics(self):
                 AddMsg(self.timer.split() + " Processing the tabulate area table and computing metric values")
                 # Internal function to process the tabulate area table and compute metric values. Use values to populate the ATtILA output table
-                utils.calculate.landCoverDiversity(self.metricConst, self.outIdField, 
+                calculate.landCoverDiversity(self.metricConst, self.outIdField, 
                                                    self.newTable, self.tabAreaTable, self.zoneAreaDict)
                 
             # Function to run all the steps in the calculation process
@@ -1157,7 +1172,7 @@ def runLandCoverDiversity(inReportingUnitFeature, reportingUnitIdField, inLandCo
                                 processingCellSize, snapRaster, optionalFieldGroups, metricConst)
         lcdCalc.run()
 
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:
@@ -1168,7 +1183,8 @@ def runPopulationDensityCalculator(inReportingUnitFeature, reportingUnitIdField,
                                    popChangeYN, inCensusFeature2, inPopField2, optionalFieldGroups):
     """ Interface for script executing Population Density Metrics """
     from arcpy import env
-    from pylet import arcpyutil
+    #from pylet import utils
+    from . import utils
     cleanupList = [] # This is an empty list object that will contain tuples of the form (function, arguments) as needed for cleanup
     try:
         ### Initialization
@@ -1181,9 +1197,9 @@ def runPopulationDensityCalculator(inReportingUnitFeature, reportingUnitIdField,
 
         # Set the output workspace
         _tempEnvironment1 = env.workspace
-        env.workspace = arcpyutil.environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
+        env.workspace = environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
         # Strip the description from the "additional option" and determine whether intermediates are stored.
-        processed = arcpyutil.parameters.splitItemsAndStripDescriptions(optionalFieldGroups, globalConstants.descriptionDelim)
+        processed = parameters.splitItemsAndStripDescriptions(optionalFieldGroups, globalConstants.descriptionDelim)
         if globalConstants.intermediateName in processed:
             msg = "\nIntermediates are stored in this directory: {0}\n"
             arcpy.AddMessage(msg.format(env.workspace))
@@ -1197,13 +1213,13 @@ def runPopulationDensityCalculator(inReportingUnitFeature, reportingUnitIdField,
         # values and will also keep only the OID, shape, and reportingUnitIdField fields
         desc = arcpy.Describe(inReportingUnitFeature)
         tempName = "%s_%s" % (metricConst.shortName, desc.baseName)
-        tempReportingUnitFeature = utils.files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
+        tempReportingUnitFeature = files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
         AddMsg(timer.split() + " Creating temporary copy of " + desc.name)
         inReportingUnitFeature = arcpy.Dissolve_management(inReportingUnitFeature, os.path.basename(tempReportingUnitFeature), 
                                                            reportingUnitIdField,"","MULTI_PART")
 
         # Add and populate the area field (or just recalculate if it already exists
-        ruArea = utils.vector.addAreaField(inReportingUnitFeature,metricConst.areaFieldname)
+        ruArea = vector.addAreaField(inReportingUnitFeature,metricConst.areaFieldname)
         
         # Build the final output table.
         AddMsg(timer.split() + " Creating output table")
@@ -1216,7 +1232,7 @@ def runPopulationDensityCalculator(inReportingUnitFeature, reportingUnitIdField,
         if popChangeYN:
             index = "1"
         # Perform population density calculation for first (only?) population feature class
-        utils.calculate.getPopDensity(inReportingUnitFeature,reportingUnitIdField,ruArea,inCensusFeature,inPopField,
+        calculate.getPopDensity(inReportingUnitFeature,reportingUnitIdField,ruArea,inCensusFeature,inPopField,
                                       env.workspace,outTable,metricConst,cleanupList,index)
 
         #if popChangeYN is checked:
@@ -1224,7 +1240,7 @@ def runPopulationDensityCalculator(inReportingUnitFeature, reportingUnitIdField,
             index = "2"
             AddMsg(timer.split() + " Calculating population density for second feature class")
             # Perform population density calculation for second population feature class
-            utils.calculate.getPopDensity(inReportingUnitFeature,reportingUnitIdField,ruArea,inCensusFeature2,inPopField2,
+            calculate.getPopDensity(inReportingUnitFeature,reportingUnitIdField,ruArea,inCensusFeature2,inPopField2,
                                           env.workspace,outTable,metricConst,cleanupList,index)
             
             AddMsg(timer.split() + " Calculating population change")
@@ -1240,10 +1256,10 @@ def runPopulationDensityCalculator(inReportingUnitFeature, reportingUnitIdField,
         return ((pop2-pop1)/pop1)*100"""
             
             # Calculate the population density
-            utils.vector.addCalculateField(outTable,metricConst.populationChangeFieldName,calcExpression,codeBlock)       
+            vector.addCalculateField(outTable,metricConst.populationChangeFieldName,calcExpression,codeBlock)       
 
         AddMsg(timer.split() + " Calculation complete")
-    except Exception, e:
+    except Exception as e:
         errors.standardErrorHandling(e)
 
     finally:

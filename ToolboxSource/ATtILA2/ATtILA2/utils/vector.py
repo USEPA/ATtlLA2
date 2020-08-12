@@ -2,9 +2,13 @@
 
 """
 
-import arcpy, pylet, files
-from pylet.arcpyutil.messages import AddMsg
-from pylet.arcpyutil.fields import valueDelimiter
+import arcpy
+from .. import utils
+from . import files
+from . import messages
+from . import fields
+from .messages import AddMsg
+from .fields import valueDelimiter
 from arcpy.sa.Functions import SetNull
 
 
@@ -58,7 +62,7 @@ def bufferFeaturesByID(inFeatures, repUnits, outFeatures, bufferDist, ruIDField,
         # Get a count of the number of reporting units to give an accurate progress estimate.
         n = int(arcpy.GetCount_management(bufferedFeatures).getOutput(0))
         # Initialize custom progress indicator
-        loopProgress = pylet.arcpyutil.messages.loopProgress(n)
+        loopProgress = messages.loopProgress(n)
 
         i = 0 # Flag used to create the outFeatures the first time through.
         # Create a Search cursor to iterate through the reporting units with buffered features.
@@ -301,7 +305,7 @@ def splitDissolveMerge(lines,repUnits,uIDField,mergedLines,inLengthField,lineCla
     intersectFeatures = arcpy.CreateScratchName("tmpIntersect","","FeatureClass")
     intersection = arcpy.Intersect_analysis([repUnits, lines],intersectFeatures,"ALL","","INPUT")
     dissolveFields = uIDField.name
-    if lineClass <> '':
+    if lineClass != '':
         dissolveFields = [uIDField.name, lineClass]
     
     # Dissolve the intersected lines on the unit ID (and optional line class) fields. 
@@ -361,7 +365,7 @@ def roadsNearStreams(inStreamFeature,mergedStreams,bufferDist,inRoadFeature,inRe
     # perform a dissolve to get a 1 to 1 relationship with input to output. Include the class field if provided.
     arcpy.AddMessage("Dissolving intersection result and calculating values...")
     dissolveFields = ruID.name
-    if roadClass <> '':
+    if roadClass != '':
         dissolveFields = [ruID.name, roadClass] 
     # Dissolve the intersected lines on the unit ID (and optional line class) fields.
     arcpy.Dissolve_management(intersect2,roadsNearStreams,dissolveFields, "#","MULTI_PART","DISSOLVE_LINES")
@@ -447,7 +451,8 @@ def addCalculateField(inFeatures,fieldName,calcExpression,codeBlock='#'):
 
 def tabulateMDCP(inPatchRaster, inReportingUnitFeature, reportingUnitIdField, rastoPolyFeature, patchCentroidsFeature, 
                  patchDissolvedFeature, nearPatchTable, zoneAreaDict, timer, pmResultsDict):
-    from pylet import arcpyutil
+    #from pylet import utils
+    from . import calculate, conversion, environment, fields, files, messages, parameters, polygons, raster, settings, tabarea, table, vector
     resultDict = {}
     
     # put the proper field delimiters around the ID field name for SQL expressions
@@ -474,7 +479,7 @@ def tabulateMDCP(inPatchRaster, inReportingUnitFeature, reportingUnitIdField, ra
     
     # Initialize custom progress indicator
     totalRUs = len(zoneAreaDict)
-    mdcpLoopProgress = arcpyutil.messages.loopProgress(totalRUs)
+    mdcpLoopProgress = messages.loopProgress(totalRUs)
     
     noPatches = 0
     singlePatch = 0
@@ -543,7 +548,7 @@ def tabulateMDCP(inPatchRaster, inReportingUnitFeature, reportingUnitIdField, ra
                 arcpy.GenerateNearTable_analysis("FinalPatch_diss_Layer",["FinalPatch_diss_Layer"], nearPatchTable,
                                                  "","NO_LOCATION","NO_ANGLE","CLOSEST","0")
                 
-                if totalNumPatches <> pmPatches:
+                if totalNumPatches != pmPatches:
                     # Alert the user that the problem was not corrected
                     arcpy.AddWarning("Possible error in the number of patches foud in " + str(aZone) +" \n" + \
                                      "Calculated value for MDCP for this reporting unit is suspect")

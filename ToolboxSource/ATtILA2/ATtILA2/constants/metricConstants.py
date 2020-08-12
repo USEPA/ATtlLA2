@@ -1,5 +1,4 @@
-import globalConstants as gc
-
+from . import globalConstants as gc
 
 class baseMetricConstants():
     """  """

@@ -5,8 +5,12 @@
     .. _Table: 
 '''
 import os
+
 import arcpy
-from pylet import arcpyutil
+#from pylet import utils
+from .. import utils
+
+from . import fields
 from ATtILA2.constants import globalConstants
 
 def createMetricOutputTable(outTable, outIdField, metricsBaseNameList, metricsFieldnameDict, metricFieldParams, 
@@ -48,7 +52,7 @@ def createMetricOutputTable(outTable, outIdField, metricsBaseNameList, metricsFi
     
     # Field objects in ArcGIS 10 service pack 0 have a type property that is incompatible with some of the AddField 
     # tool's Field Type keywords. This addresses that issue
-    outIdFieldType = arcpyutil.fields.convertFieldTypeKeyword(outIdField)
+    outIdFieldType = fields.convertFieldTypeKeyword(outIdField)
     
     arcpy.AddField_management(newTable, outIdField.name, outIdFieldType, outIdField.precision, outIdField.scale)
     
@@ -71,7 +75,7 @@ def createMetricOutputTable(outTable, outIdField, metricsBaseNameList, metricsFi
                                    addAreaFldParams[2], addAreaFldParams[3])for mBaseName in metricsBaseNameList]
          
     # delete the 'Field1' field if it exists in the new output table.
-    arcpyutil.fields.deleteFields(newTable, ["field1"])
+    fields.deleteFields(newTable, ["field1"])
     
         
     return newTable
@@ -187,7 +191,7 @@ def tableWriterByClass(outTable, metricsBaseNameList, optionalGroupsList, metric
         
     """
 
-    maxFieldNameSize = arcpyutil.fields.getFieldNameSizeLimit(outTable) 
+    maxFieldNameSize = fields.getFieldNameSizeLimit(outTable) 
     metricFieldParams = metricConst.fieldParameters
     metricsFieldnameDict = {} # create a dictionary of ClassName keys with user supplied field names values
     outputFieldNames = set() # use this set to help make field names unique   
@@ -294,7 +298,9 @@ def tableWriterByCoefficient(outTable, metricsBaseNameList, optionalGroupsList, 
         
     """
     
-    maxFieldNameSize = arcpyutil.fields.getFieldNameSizeLimit(outTable)
+    #maxFieldNameSize = fields.getFieldNameSizeLimit(outTable)
+
+    maxFieldNameSize = fields.getFieldNameSizeLimit(outTable)
     metricFieldParams = metricConst.fieldParameters
     metricsFieldnameDict = {} # create a dictionary of ClassName keys with user supplied field names values
     outputFieldNames = set() # use this set to help make field names unique       
@@ -362,7 +368,7 @@ def tableWriterNoLcc(outTable, metricsBaseNameList, optionalGroupsList, metricCo
         
     """
 
-    maxFieldNameSize = arcpyutil.fields.getFieldNameSizeLimit(outTable) 
+    maxFieldNameSize = fields.getFieldNameSizeLimit(outTable) 
     metricFieldParams = metricConst.fieldParameters
     metricsFieldnameDict = {} # create a dictionary of ClassName keys with user supplied field names values
     outputFieldNames = set() # use this set to help make field names unique 
@@ -458,7 +464,7 @@ def transferField(fromTable,toTable,fromFields,toFields,joinField,classField="#"
         # In preparation for the upcoming whereclause, add the appropriate delimiters to the join field
         joinFieldDelim = arcpy.AddFieldDelimiters(fromTable,joinField)
         # In preparation for the upcoming whereclause, set up the appropriate delimiter function for the join value
-        delimitJoinValues = arcpyutil.fields.valueDelimiter(arcpy.ListFields(fromTable,joinField)[0].type)
+        delimitJoinValues = fields.valueDelimiter(arcpy.ListFields(fromTable,joinField)[0].type)
         # Initialize an update cursor on the output table
         updateCursor = arcpy.UpdateCursor(toTable)
         # For each row in the output table (each reporting unit)
@@ -507,7 +513,7 @@ def addJoinCalculateField(fromTable,toTable,fromField,toField,joinField):
                         may need to be modified in the future.
     '''
     # If renaming is required, add a temp field to the fromtable with the new name
-    if fromField <> toField:
+    if fromField != toField:
         # Get the properties of the from field for transfer
         fromField = arcpy.ListFields(fromTable,fromField)[0]
         # Add the new field with the new name
@@ -527,7 +533,7 @@ def addJoinCalculateField(fromTable,toTable,fromField,toField,joinField):
     #arcpy.JoinField_management(toTable,joinField,fromTable,joinField,toField)
     arcpy.JoinField_management(toTable,joinField_In_toTable,fromTable,joinField,toField)
     # If we added a temp field
-    if fromField <> toField:
+    if fromField != toField:
         arcpy.DeleteField_management(fromTable,toField)
     
 def getClassFieldName(fieldName,classVal,table):

@@ -5,6 +5,10 @@ from ATtILA2.constants import globalConstants
 
 import arcpy
 from ATtILA2.setupAndRestore import _tempEnvironment3
+from . import messages
+from . import files
+from . import vector
+from . import table
 
 
 def getMetricPercentAreaAndSum(metricGridCodesList, tabAreaDict, effectiveAreaSum, excludedValues):
@@ -343,7 +347,7 @@ def lineDensityCalculator(inLines,inAreas,areaUID,unitArea,outLines,densityField
         
     """
     
-    import vector
+    from . import vector
     
     # First perform the split/dissolve/merge on the roads
     outLines, lineLengthFieldName = vector.splitDissolveMerge(inLines,inAreas,areaUID,outLines,inLengthField,lineClass)
@@ -658,7 +662,8 @@ def getMDCP(outIdField, newTable, mdcpDict, optionalGroupsList, outClassName):
 
 def getPatchNumbers(outIdField, newTable, reportingUnitIdField, metricsFieldnameDict, zoneAreaDict, metricConst, m, 
                     inReportingUnitFeature, inLandCoverGrid, processingCellSize, conversionFactor):
-    from pylet import arcpyutil
+    #from pylet import utils
+    from . import calculate, conversion, environment, fields, files, messages, parameters, polygons, raster, settings, tabarea, table, vector
     from arcpy import env
     resultsDict={}
     
@@ -671,7 +676,7 @@ def getPatchNumbers(outIdField, newTable, reportingUnitIdField, metricsFieldname
         
         # Initialize custom progress indicator
         totalRUs = len(zoneAreaDict)
-        loopProgress = arcpyutil.messages.loopProgress(totalRUs)
+        loopProgress = messages.loopProgress(totalRUs)
     
         #For each Reporting Unit run Tabulate Area Analysis and add the results to a dictionary
         for aZone in zoneAreaDict.keys():
@@ -869,44 +874,44 @@ def getPopDensity(inReportingUnitFeature,reportingUnitIdField,ruArea,inCensusFea
     from ATtILA2 import utils
     import os
     # If the user specified an index, add an underscore as prefix.
-    if index <> "":
+    if index != "":
         index = "_" + index
     # Create a copy of the census feature class that we can add new fields to for calculations.  This 
     # is more appropriate than altering the user's input data.
     fieldMappings = arcpy.FieldMappings()
     fieldMappings.addTable(inCensusFeature)
-    [fieldMappings.removeFieldMap(fieldMappings.findFieldMapIndex(aFld.name)) for aFld in fieldMappings.fields if aFld.name <> inPopField]
+    [fieldMappings.removeFieldMap(fieldMappings.findFieldMapIndex(aFld.name)) for aFld in fieldMappings.fields if aFld.name != inPopField]
 
     desc = arcpy.Describe(inCensusFeature)
     tempName = "%s_%s" % (metricConst.shortName, desc.baseName)
-    tempCensusFeature = utils.files.nameIntermediateFile([tempName + index,"FeatureClass"],cleanupList)
+    tempCensusFeature = files.nameIntermediateFile([tempName + index,"FeatureClass"],cleanupList)
     inCensusFeature = arcpy.FeatureClassToFeatureClass_conversion(inCensusFeature,tempWorkspace,
                                                                          os.path.basename(tempCensusFeature),"",
                                                                          fieldMappings)
 
     # Add and populate the area field (or just recalculate if it already exists
-    popArea = utils.vector.addAreaField(inCensusFeature,'popArea')
+    popArea = vector.addAreaField(inCensusFeature,'popArea')
     
     # Set up a calculation expression for the density calculation
     calcExpression = "!" + inPopField + "!/!" + popArea + "!"
     # Calculate the population density
-    inPopDensityField = utils.vector.addCalculateField(inCensusFeature,'popDens' + index,calcExpression)
+    inPopDensityField = vector.addCalculateField(inCensusFeature,'popDens' + index,calcExpression)
     
     # Intersect the reporting units with the population features.
-    intersectOutput = utils.files.nameIntermediateFile([metricConst.intersectOutputName + index,"FeatureClass"],cleanupList)
+    intersectOutput = files.nameIntermediateFile([metricConst.intersectOutputName + index,"FeatureClass"],cleanupList)
     arcpy.Intersect_analysis([inReportingUnitFeature,inCensusFeature], intersectOutput)
     
     # Add and populate the area field of the intersected polygons
-    intArea = utils.vector.addAreaField(intersectOutput,'intArea')
+    intArea = vector.addAreaField(intersectOutput,'intArea')
     
     # Calculate the population of the intersected areas by multiplying population density by intersected area
     # Set up a calculation expression for the density calculation
     calcExpression = "!" + inPopDensityField + "!*!" + intArea + "!"
     # Calculate the population density
-    intPopField = utils.vector.addCalculateField(intersectOutput,'intPop',calcExpression)
+    intPopField = vector.addCalculateField(intersectOutput,'intPop',calcExpression)
     
     # Intersect the reporting units with the population features.
-    summaryTable = utils.files.nameIntermediateFile([metricConst.summaryTableName + index,'Dataset'],cleanupList)
+    summaryTable = files.nameIntermediateFile([metricConst.summaryTableName + index,'Dataset'],cleanupList)
     # Sum population for each reporting unit.
        
     """ If the reportingUnitIdField field is not found, it is assumed that
@@ -924,10 +929,10 @@ def getPopDensity(inReportingUnitFeature,reportingUnitIdField,ruArea,inCensusFea
     fromFields = ["SUM_" + intPopField]
     toField = 'popCount' + index
     # Transfer the values to the output table
-    utils.table.transferField(summaryTable,outTable,fromFields,[toField],reportingUnitIdField,None)
+    table.transferField(summaryTable,outTable,fromFields,[toField],reportingUnitIdField,None)
     
     # Set up a calculation expression for the final density calculation
     calcExpression = "!" + toField + "!/!" + ruArea + "!"
     # Calculate the population density
-    utils.vector.addCalculateField(outTable,metricConst.populationDensityFieldName + index,calcExpression)
+    vector.addCalculateField(outTable,metricConst.populationDensityFieldName + index,calcExpression)
 
