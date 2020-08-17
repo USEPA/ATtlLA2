@@ -169,6 +169,79 @@ def runLandCoverProportions(inReportingUnitFeature, reportingUnitIdField, inLand
         setupAndRestore.standardRestore()
 
 
+def runLandCoverProportionsPerCapita(inReportingUnitFeature, reportingUnitIdField, inLandCoverGrid, _lccName, lccFilePath,
+                                     metricsToRun, outTable, perCapitaYN, inCensusFeature, inPopField, processingCellSize, 
+                                     snapRaster, optionalFieldGroups):
+    """ Interface for script executing Population Density Metrics """
+    from arcpy import env
+    #from pylet import utils
+    from . import utils
+    
+    cleanupList = [] # This is an empty list object that will contain tuples of the form (function, arguments) as needed for cleanup
+    try:
+        ### Initialization
+        # Start the timer
+        timer = DateTimer()
+        AddMsg(timer.start() + " Setting up environment variables")
+
+        # retrieve the attribute constants associated with this metric
+        #metricConst = metricConstants.lcppcConstants()
+        metricConst = metricConstants.pdmConstants()
+
+        # Set the output workspace
+        _tempEnvironment1 = env.workspace
+        env.workspace = environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, os.path.dirname(outTable))
+        # Strip the description from the "additional option" and determine whether intermediates are stored.
+        processed = parameters.splitItemsAndStripDescriptions(optionalFieldGroups, globalConstants.descriptionDelim)
+        if globalConstants.intermediateName in processed:
+            msg = "\nIntermediates are stored in this directory: {0}\n"
+            arcpy.AddMessage(msg.format(env.workspace))
+            #AddMsg(msg.format(env.workspace))
+            cleanupList.append("KeepIntermediates")  # add this string as the first item in the cleanupList to prevent cleanups
+        else:
+            cleanupList.append((arcpy.AddMessage,("Cleaning up intermediate datasets",)))
+        
+        # Create a copy of the reporting unit feature class that we can add new fields to for calculations.  This 
+        # is more appropriate than altering the user's input data. A dissolve will handle the condition of non-unique id
+        # values and will also keep only the OID, shape, and reportingUnitIdField fields
+        desc = arcpy.Describe(inReportingUnitFeature)
+        tempName = "%s_%s" % (metricConst.shortName, desc.baseName)
+        tempReportingUnitFeature = files.nameIntermediateFile([tempName,"FeatureClass"],cleanupList)
+        AddMsg(timer.split() + " Creating temporary copy of " + desc.name)
+        inReportingUnitFeature = arcpy.Dissolve_management(inReportingUnitFeature, os.path.basename(tempReportingUnitFeature), 
+                                                           reportingUnitIdField,"","MULTI_PART")
+
+        # Add and populate the area field (or just recalculate if it already exists
+        ruArea = vector.addAreaField(inReportingUnitFeature,metricConst.areaFieldname)
+        
+        # Build the final output table.
+        AddMsg(timer.split() + " Creating output table")
+        arcpy.TableToTable_conversion(inReportingUnitFeature,os.path.dirname(outTable),os.path.basename(outTable))
+        
+        AddMsg(timer.split() + " Calculating population density")
+        
+        # Create an index value to keep track of intermediate outputs and fieldnames.
+        index = ""
+        
+        #if perCapitaYN is checked:
+        if perCapitaYN:
+            index = "1"
+            # Perform population density calculation for first (only?) population feature class
+            calculate.getPopDensity(inReportingUnitFeature,reportingUnitIdField,ruArea,inCensusFeature,inPopField,
+                                      env.workspace,outTable,metricConst,cleanupList,index)   
+
+        AddMsg(timer.split() + " Calculation complete")
+    except Exception as e:
+        errors.standardErrorHandling(e)
+
+    finally:
+        if not cleanupList[0] == "KeepIntermediates":
+            for (function,arguments) in cleanupList:
+                # Flexibly executes any functions added to cleanup array.
+                function(*arguments)
+        env.workspace = _tempEnvironment1        
+
+
 def runLandCoverOnSlopeProportions(inReportingUnitFeature, reportingUnitIdField, inLandCoverGrid, _lccName, lccFilePath,
                                    metricsToRun, inSlopeGrid, inSlopeThresholdValue, outTable, processingCellSize,
                                    snapRaster, optionalFieldGroups, clipLCGrid):
@@ -543,7 +616,7 @@ def runCoreAndEdgeMetrics(inReportingUnitFeature, reportingUnitIdField, inLandCo
                     if globalConstants.qaCheckName in self.optionalGroupsList:
                         # Check to see if an outputGeorgraphicCoordinate system is set in the environments. If one is not specified
                         # return the spatial reference for the land cover grid. Use the returned spatial reference to calculate the
-                        # area of the reporting s polygon features to store in the zoneAreaDict
+                        # area of the reporting unit's polygon features to store in the zoneAreaDict
                         self.outputSpatialRef = settings.getOutputSpatialReference(self.inLandCoverGrid)
                         self.zoneAreaDict = polygons.getMultiPartIdAreaDict(self.inReportingUnitFeature, self.reportingUnitIdField, self.outputSpatialRef)
 
@@ -610,7 +683,7 @@ def runRiparianLandCoverProportions(inReportingUnitFeature, reportingUnitIdField
                     AddMsg("Duplicate ID values found in reporting unit feature. Forming multipart features...")
                     # Get a unique name with full path for the output features - will default to current workspace:
                     self.namePrefix = self.metricConst.shortName + "_Dissolve"+self.inBufferDistance.split()[0]
-                    self.dissolveName = uti.files.nameIntermediateFile([self.namePrefix,"FeatureClass"], rlcpCalc.cleanupList)
+                    self.dissolveName = files.nameIntermediateFile([self.namePrefix,"FeatureClass"], rlcpCalc.cleanupList)
                     self.inReportingUnitFeature = arcpy.Dissolve_management(self.inReportingUnitFeature, self.dissolveName, 
                                                                             self.reportingUnitIdField,"","MULTI_PART")
                     
@@ -721,6 +794,7 @@ def runLandCoverCoefficientCalculator(inReportingUnitFeature, reportingUnitIdFie
     try:
         # retrieve the attribute constants associated with this metric
         metricConst = metricConstants.lcccConstants()
+
         # Create new LCC metric calculation subclass
         class metricCalcLCC(metricCalc):
             # Subclass that overrides specific functions for the land Cover Coefficient calculation

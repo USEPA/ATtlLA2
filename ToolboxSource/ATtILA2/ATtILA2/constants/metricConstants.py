@@ -52,6 +52,31 @@ class lcpConstants(baseMetricConstants):
         ]   
     fieldOverrideKey = shortName + gc.fieldOverrideName
     
+class lcppcConstants(baseMetricConstants):
+    name = "LandCoverProportions"
+    shortName = "lcppc"
+    fieldPrefix = "p"
+    fieldSuffix = ""
+    overlapName = "LCPPC_OVER"
+    totalAreaName = "LCPPC_TOTA"
+    effectiveAreaName = "LCPPC_EFFA"
+    excludedAreaName = "LCPPC_EXCA"
+    optionalFilter = [gc.qaCheckDescription, gc.metricAddDescription, gc.intermediateDescription]
+    fieldParameters = [fieldPrefix,fieldSuffix, gc.defaultDecimalFieldType, 6, 1]
+    qaCheckFieldParameters = [
+        [overlapName, gc.defaultIntegerFieldType, 6],
+        [totalAreaName, gc.defaultAreaFieldType, 15],
+        [effectiveAreaName, gc.defaultAreaFieldType, 15],
+        [excludedAreaName, gc.defaultAreaFieldType, 15]
+        ]   
+    fieldOverrideKey = shortName + gc.fieldOverrideName
+    perCapitaSuffix = "_PC"
+    meterSquaredSuffix = "_M2"
+    additionalSuffixes = [perCapitaSuffix, meterSquaredSuffix]
+    perCapitaField = ["", perCapitaSuffix, "LONG", 10]
+    meterSquaredField = ["", meterSquaredSuffix, gc.defaultAreaFieldType, 15, 0]
+    additionalFields = [perCapitaField, meterSquaredField]
+    
 class lcospConstants(baseMetricConstants):
     name = "LandCoverOnSlopeProportions"
     shortName = "lcosp"

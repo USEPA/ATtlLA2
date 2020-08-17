@@ -27,6 +27,15 @@ class lcpToolValidator(BaseValidators.ProportionsValidator):
     fieldPrefix = lcpConstants.fieldPrefix
     fieldSuffix = lcpConstants.fieldSuffix    
     metricShortName = lcpConstants.shortName 
+    
+class lcppcToolValidator(BaseValidators.ProportionsValidator):
+    """ ToolValidator for LandCoverProportions """
+    
+    filterList = lcppcConstants.optionalFilter
+    overrideAttributeName = lccConstants.XmlAttributeLcpField
+    fieldPrefix = lcppcConstants.fieldPrefix
+    fieldSuffix = lcppcConstants.fieldSuffix    
+    metricShortName = lcppcConstants.shortName 
 
 class lcccToolValidator(BaseValidators.CoefficientValidator):
     """ ToolValidator for Coefficient Calculations """

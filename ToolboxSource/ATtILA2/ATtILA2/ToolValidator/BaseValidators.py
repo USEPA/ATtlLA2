@@ -66,6 +66,7 @@ class ProportionsValidator(object):
     inRaster3Index = 0
     inMultiFeatureIndex = 0
     inVector2Index = 0
+    inGeodataset1Index = 0
     inDistanceIndex = 0
     inWholeNumIndex = 0
     inLinearUnitIndex = 0
@@ -96,6 +97,9 @@ class ProportionsValidator(object):
         self.noSpatialReferenceMessageMulti = validatorConstants.noSpatialReferenceMessageMulti
         self.nonIntegerGridMessage = validatorConstants.nonIntegerGridMessage
         self.nonPositiveNumberMessage = validatorConstants.nonPositiveNumberMessage
+        self.integerGridOrPolgonMessage = validatorConstants.integerGridOrPolgonMessage
+        self.polygonOrIntegerGridMessage = validatorConstants.polygonOrIntegerGridMessage
+        
         
         # Load global constants
         self.optionalFieldsName = validatorConstants.optionalFieldsName
@@ -152,6 +156,9 @@ class ProportionsValidator(object):
             
         if self.checkbox2Index:
             self.checkbox2Parameter = self.parameters[self.checkbox2Index]
+            
+        if self.inGeodataset1Index:
+            self.inGeodataset1Parameter = self.parameters[self.inGeodataset1Index]
 
                
         # Additional local variables
@@ -477,6 +484,30 @@ class ProportionsValidator(object):
                 else:
                     if arcpy.Describe(self.inVector2Parameter.value).spatialReference.name.lower() == "unknown":
                         self.inVector2Parameter.setErrorMessage(self.noSpatialReferenceMessage) 
+
+        # Check if a secondary geodataset input feature is indicated. Use this for requiring a polygon dataset or an integer grid.
+        if self.inGeodataset1Index:
+            # if provided, check if input geodataset1 is defined
+            if self.inGeodataset1Parameter.value:
+                # query for a dataSource attribue, if one exists, it is a lyr file. Get the lyr's data source to do a Decribe
+                if hasattr(self.inGeodataset1Parameter.value, "dataSource"):
+                    desc = arcpy.Describe(self.inGeodataset1Parameter.value.dataSource)
+                    dataSrc = self.inGeodataset1Parameter.value.dataSource
+                else:
+                    desc = arcpy.Describe(self.inGeodataset1Parameter.value)
+                    dataSrc = self.inGeodataset1Parameter.value
+
+                if desc.spatialReference.name.lower() == "unknown":
+                    self.inGeodataset1Parameter.setErrorMessage(self.noSpatialReferenceMessage) 
+                
+                if desc.datasetType == "RasterDataset":
+                    # Check if input raster is an integer grid
+                    inRaster = arcpy.Raster(str(self.inGeodataset1Parameter.value))
+#                    if not inRaster.isInteger:
+#                        self.inGeodataset1Parameter.setErrorMessage(self.integerGridOrPolgonMessage)
+                elif desc.shapeType.lower() != "polygon":
+                        self.inGeodataset1Parameter.setErrorMessage(self.polygonOrIntegerGridMessage) 
+                        
                         
         # Check if distance input (e.g., buffer width, edge width) is a positive number            
         if self.inDistanceIndex:
