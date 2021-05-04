@@ -6,8 +6,8 @@
 import sys
 import arcpy
 arcpy.env.overwriteOutput = "True"
-from pylet.arcpyutil import parameters
-from pylet.arcpyutil import polygons
+from ATtILA2.utils import parameters
+from ATtILA2.utils import polygons
 overlaplist = []
 flist = []
 nonoverlapGroupDict = {}
@@ -31,14 +31,14 @@ def main(_argv):
 
     result, OID, overlapDict = polygons.findOverlaps(inputLayer)
     overlapList = result
-    #If there are overlaps the find unique groups of nonoverlapping polygons
+    #If there are overlaps the find unique groups of non-overlapping polygons
     if result:
         arcpy.AddWarning("Warning your layer includes overlapping polygons! Calculating split")
         #Find groups of polygons that don't overlap
         nonoverlapGroupDict = polygons.findNonOverlapGroups(overlapDict)
         
-        #if createOutput box is check only box is checked report numbr of layers need to create otherwise move
-        #onto create the datalayers
+        #if createOutput box is check only box is checked report number of layers need to create otherwise move
+        #on to create the data layers
         #Check to see if there are only any non overlapping polygons
         strlist = []
         for r in result:
@@ -46,7 +46,7 @@ def main(_argv):
         values = ",".join(strlist)
         arcpy.MakeFeatureLayer_management(inputLayer, "No Polygons Overlap",OID + " NOT IN (" + values + ")")
         totallyrs = str(len(nonoverlapGroupDict.keys()))
-        arcpy.AddMessage(totallyrs + " layers will be required to be create to ensure no overlapping")
+        arcpy.AddWarning(totallyrs + " layers will be required to be created to ensure no overlaps")
         if checkOnly == "false":
 #        if not checkOnly:
             #If overlaps exists create new layers with no overlaps(creates new intermediate layer)

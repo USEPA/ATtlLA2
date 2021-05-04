@@ -73,10 +73,10 @@ class TabulateAreaTable(object):
         return self
 
 
-    def next(self):
+    def __next__(self):
         """ Iterate items"""
         
-        row = self._tabAreaTableRows.next()
+        row = self._tabAreaTableRows.__next__()
         
         if row:
             return TabulateAreaRow(row, self._reportingUnitIdField, self._tabAreaValueFields, self._tabAreaValues, 

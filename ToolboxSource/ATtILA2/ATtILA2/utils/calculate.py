@@ -4,6 +4,11 @@
 from ATtILA2.constants import globalConstants
 
 import arcpy
+from ATtILA2.setupAndRestore import _tempEnvironment3
+from . import messages
+from . import files
+from . import vector
+from . import table
 
 
 def getMetricPercentAreaAndSum(metricGridCodesList, tabAreaDict, effectiveAreaSum, excludedValues):
@@ -51,7 +56,8 @@ def getMetricPercentAreaAndSum(metricGridCodesList, tabAreaDict, effectiveAreaSu
 
 
 def landCoverProportions(lccClassesDict, metricsBaseNameList, optionalGroupsList, metricConst, outIdField, newTable, 
-                         tabAreaTable, metricsFieldnameDict, zoneAreaDict):
+                         tabAreaTable, metricsFieldnameDict, zoneAreaDict, zoneValueDict=False,
+                         conversionFactor=None):
     """ Creates *outTable* populated with land cover proportions metrics
     
     **Description:**
@@ -75,6 +81,8 @@ def landCoverProportions(lccClassesDict, metricsBaseNameList, optionalGroupsList
                         (e.g., "forest":("fore0_E2A7","fore0")
         * *zoneAreaDict* -  dictionary with the area of each input polygon keyed to the polygon's ID value. 
                         Used in grid overlap calculations.
+        * *zoneValueDict* - dictionary with a value for an input polygon feature keyed to the polygon's ID value.
+                        Used in lcc class area per value calculations (e.g. square meters of forest per person).
         
     **Returns:**
 
@@ -111,6 +119,17 @@ def landCoverProportions(lccClassesDict, metricsBaseNameList, optionalGroupsList
                     areaSuffix = globalConstants.areaFieldParameters[0]
                     outTableRow.setValue(metricsFieldnameDict[mBaseName][0]+areaSuffix, metricPercentageAndArea[1])
 
+                # add per value (e.g., capita) calculations to row
+                if zoneValueDict:
+                    zoneValue = zoneValueDict[tabAreaTableRow.zoneIdValue]
+                    classSqM = metricPercentageAndArea[1] * conversionFactor
+                    perValueCalc = classSqM / zoneValue
+                    #perValueCalc = metricPercentageAndArea[1] / zoneValue
+                    perValueSuffix = metricConst.perCapitaSuffix
+                    meterSquaredSuffix = metricConst.meterSquaredSuffix
+                    outTableRow.setValue(metricsFieldnameDict[mBaseName][1]+perValueSuffix, perValueCalc)
+                    outTableRow.setValue(metricsFieldnameDict[mBaseName][1]+meterSquaredSuffix, classSqM)
+
             # add QACheck calculations/values to row
             if zoneAreaDict:
                 zoneArea = zoneAreaDict[tabAreaTableRow.zoneIdValue]
@@ -135,6 +154,93 @@ def landCoverProportions(lccClassesDict, metricsBaseNameList, optionalGroupsList
             del tabAreaTableRow
         except:
             pass
+
+
+# def landCoverProportionsOLD(lccClassesDict, metricsBaseNameList, optionalGroupsList, metricConst, outIdField, newTable, 
+#                          tabAreaTable, metricsFieldnameDict, zoneAreaDict):
+#     """ Creates *outTable* populated with land cover proportions metrics
+#     
+#     **Description:**
+# 
+#         Creates *outTable* populated with land cover proportions metrics...
+#         
+#     **Arguments:**
+# 
+#         * *lccClassesDict* - dictionary of metric class values 
+#                         (e.g., classValuesDict['for'].uniqueValueIds = (41, 42, 43))
+#         * *metricsBaseNameList* - a list of metric BaseNames parsed from the 'Metrics to run' input 
+#                         (e.g., [for, agt, shrb, devt] or [NITROGEN, IMPERVIOUS])
+#         * *optionalGroupsList* - list of the selected options parsed from the 'Select options' input
+#                         (e.g., ["QAFIELDS", "AREAFIELDS", "INTERMEDIATES"])
+#         * *metricConst* - an object with constants specific to the metric being run (lcp vs lcosp)
+#         * *outIdField* - a copy of the reportingUnitIdField except where the IdField type = OID
+#         * *newTable* - the ATtILA created output table 
+#         * *tabAreaTable* - tabulateArea request output from ArcGIS
+#         * *metricsFieldnameDict* - a dictionary keyed to the lcc class with the ATtILA generated fieldname tuple as value
+#                         The tuple consists of the output fieldname and the class name as modified
+#                         (e.g., "forest":("fore0_E2A7","fore0")
+#         * *zoneAreaDict* -  dictionary with the area of each input polygon keyed to the polygon's ID value. 
+#                         Used in grid overlap calculations.
+#         
+#     **Returns:**
+# 
+#         * None
+#         
+#     """
+#     
+#     try:      
+#         # create the cursor to add data to the output table
+#         outTableRows = arcpy.InsertCursor(newTable)        
+#         
+#         for tabAreaTableRow in tabAreaTable:
+#             tabAreaDict = tabAreaTableRow.tabAreaDict
+#             effectiveArea = tabAreaTableRow.effectiveArea
+#             excludedValues = tabAreaTableRow._excludedValues
+#             
+#             # initiate a row to add to the metric output table
+#             outTableRow = outTableRows.newRow()
+#             
+#             # set the reporting unit id value in the output row
+#             outTableRow.setValue(outIdField.name, tabAreaTableRow.zoneIdValue)
+#             
+#             # sum the areas for the selected metric's grid codes   
+#             for mBaseName in metricsBaseNameList: 
+#                 # get the grid codes for this specified metric
+#                 metricGridCodesList = lccClassesDict[mBaseName].uniqueValueIds
+#                 # get the class percentage area and it's actual area from the tabulate area table
+#                 metricPercentageAndArea = getMetricPercentAreaAndSum(metricGridCodesList, tabAreaDict, effectiveArea, excludedValues)
+#                 
+#                 # add the calculation to the output row
+#                 outTableRow.setValue(metricsFieldnameDict[mBaseName][0], metricPercentageAndArea[0])
+#                 
+#                 if globalConstants.metricAddName in optionalGroupsList:
+#                     areaSuffix = globalConstants.areaFieldParameters[0]
+#                     outTableRow.setValue(metricsFieldnameDict[mBaseName][0]+areaSuffix, metricPercentageAndArea[1])
+# 
+#             # add QACheck calculations/values to row
+#             if zoneAreaDict:
+#                 zoneArea = zoneAreaDict[tabAreaTableRow.zoneIdValue]
+#                 overlapCalc = ((tabAreaTableRow.totalArea)/zoneArea) * 100
+#                 
+#                 qaCheckFlds = metricConst.qaCheckFieldParameters
+#                 outTableRow.setValue(qaCheckFlds[0][0], overlapCalc)
+#                 outTableRow.setValue(qaCheckFlds[1][0], tabAreaTableRow.totalArea)
+#                 outTableRow.setValue(qaCheckFlds[2][0], tabAreaTableRow.effectiveArea)
+#                 outTableRow.setValue(qaCheckFlds[3][0], tabAreaTableRow.excludedArea)
+#             
+#             # commit the row to the output table
+#             outTableRows.insertRow(outTableRow)
+#                 
+#     finally:
+#         
+#         # delete cursor and row objects to remove locks on the data
+#         try:
+#             del outTableRows
+#             del outTableRow
+#             del tabAreaTable
+#             del tabAreaTableRow
+#         except:
+#             pass
                
 
 def getCoefficientPerUnitArea(tabAreaDict, lccValuesDict, coeffId, conversionFactor):
@@ -342,7 +448,7 @@ def lineDensityCalculator(inLines,inAreas,areaUID,unitArea,outLines,densityField
         
     """
     
-    import vector
+    from . import vector
     
     # First perform the split/dissolve/merge on the roads
     outLines, lineLengthFieldName = vector.splitDissolveMerge(inLines,inAreas,areaUID,outLines,inLengthField,lineClass)
@@ -369,8 +475,7 @@ def lineDensityCalculator(inLines,inAreas,areaUID,unitArea,outLines,densityField
     return outLines, lineLengthFieldName
 
 
-def landCoverDiversity(optionalGroupsList, metricConst, outIdField, newTable, 
-                         tabAreaTable, metricsFieldnameDict, zoneAreaDict):
+def landCoverDiversity(metricConst, outIdField, newTable, tabAreaTable, zoneAreaDict):
     """ Creates *outTable* populated with land cover diversity metrics
     
     **Description:**
@@ -379,15 +484,10 @@ def landCoverDiversity(optionalGroupsList, metricConst, outIdField, newTable,
         
     **Arguments:**
 
-        * *optionalGroupsList* - list of the selected options parsed from the 'Select options' input
-                        (e.g., ["QAFIELDS", "AREAFIELDS", "INTERMEDIATES"])
         * *metricConst* - an object with constants specific to the metric being run (lcp vs lcosp)
         * *outIdField* - a copy of the reportingUnitIdField except where the IdField type = OID
         * *newTable* - the ATtILA created output table 
         * *tabAreaTable* - tabulateArea request output from ArcGIS
-        * *metricsFieldnameDict* - a dictionary keyed to the lcc class with the ATtILA generated fieldname tuple as value
-                        The tuple consists of the output fieldname and the class name as modified
-                        (e.g., "forest":("fore0_E2A7","fore0")
         * *zoneAreaDict* -  dictionary with the area of each input polygon keyed to the polygon's ID value. 
                         Used in grid overlap calculations.
         
@@ -610,61 +710,231 @@ def getCoreEdgeRatio(outIdField, newTable, tabAreaTable, metricsFieldnameDict, z
             pass
   
 
-def getMDCP(outIdField, newTable, mdcpDict, metricsFieldnameDict,metricConst, m):
+def getMDCP(outIdField, newTable, mdcpDict, optionalGroupsList, outClassName):
     try:
-    #       Check to see if newTable has already been set up
-            rowcount = int(arcpy.GetCount_management(newTable).getOutput(0))
-            if rowcount == 0:
-                outTableRows = arcpy.InsertCursor(newTable)
-                for k in mdcpDict.keys():
-                    # initiate a row to add to the metric output table
-                    outTableRow = outTableRows.newRow()
-                    
-                    # set the reporting unit id value in the output row
-                    outTableRow.setValue(outIdField.name, k)
-                    
-                    # commit the row to the output table
-                    outTableRows.insertRow(outTableRow)
-                del outTableRows, outTableRow
-            #Add new fields for the lu for pwon and pwn
-            arcpy.AddField_management(newTable, "PWN_" + m, "Double")
-            arcpy.AddField_management(newTable, "PWON_" + m, "Double")    
-#         create the cursor to add data to the output table
-            outTableRows = arcpy.UpdateCursor(newTable)        
-            outTableRow = outTableRows.next()
-            while outTableRow:
-                uid = outTableRow.getValue(outIdField.name)
-                # populate the mean distance to edge patch for the current reporting unit  
-                outTableRow.setValue(metricsFieldnameDict[m][0], mdcpDict[uid].split(",")[2])
-                outTableRow.setValue("PWN_" + m, mdcpDict[uid].split(",")[0])
-                outTableRow.setValue("PWON_" + m, mdcpDict[uid].split(",")[1])
-#                # add QACheck calculations/values to row
-#                if zoneAreaDict:
-#                    zoneArea = zoneAreaDict[uid]
-##                    print "ZoneArea =" + str(zoneArea)
-#                    overlapCalc = ((OptionalDict[uid][0])/zoneArea) * 100
-#                    
-#                    qaCheckFlds = metricConst.qaCheckFieldParameters
-#                    outTableRow.setValue(qaCheckFlds[0][0], overlapCalc)
-#                    outTableRow.setValue(qaCheckFlds[1][0], OptionalDict[uid][0])
-#                    outTableRow.setValue(qaCheckFlds[2][0], OptionalDict[uid][1])
-#                    outTableRow.setValue(qaCheckFlds[3][0], OptionalDict[uid][2])
-#                
+        # Check to see if newTable has already been set up
+        rowcount = int(arcpy.GetCount_management(newTable).getOutput(0))
+        if rowcount == 0:
+            outTableRows = arcpy.InsertCursor(newTable)
+            for k in mdcpDict.keys():
+                # initiate a row to add to the metric output table
+                outTableRow = outTableRows.newRow()
+                
+                # set the reporting unit id value in the output row
+                outTableRow.setValue(outIdField.name, k)
+                
                 # commit the row to the output table
-                outTableRows.updateRow(outTableRow)
-                outTableRow = outTableRows.next()
+                outTableRows.insertRow(outTableRow)
+            del outTableRows, outTableRow
+        # If QA fields are selected, add fields for pwn (patches w/ neighbors) and pwon (patches w/o) for the class
+        if globalConstants.qaCheckName in optionalGroupsList:
+            arcpy.AddField_management(newTable, outClassName+"_PWN", "Double")
+            arcpy.AddField_management(newTable, outClassName+"_PWON", "Double")
+        
+        mdcpFieldName = outClassName+"_MDCP"
+
+        # create the cursor to add data to the output table
+        outTableRows = arcpy.UpdateCursor(newTable)        
+        outTableRow = outTableRows.next()
+        while outTableRow:
+            uid = outTableRow.getValue(outIdField.name)
+            # populate the mean distance to edge patch for the current reporting unit
+            outTableRow.setValue(mdcpFieldName, mdcpDict[uid].split(",")[2])
+            
+            # If QA fields are selected, populate the pwon and pwn fields
+            if globalConstants.qaCheckName in optionalGroupsList:
+                outTableRow.setValue(outClassName+"_PWN", mdcpDict[uid].split(",")[0])
+                outTableRow.setValue(outClassName+"_PWON", mdcpDict[uid].split(",")[1])
+            
+            # commit the row to the output table
+            outTableRows.updateRow(outTableRow)
+            outTableRow = outTableRows.next()
+            
     finally:
         
-            # delete cursor and row objects to remove locks on the data
-            try:
-                del outTableRows
-                del outTableRow
-#                del tabAreaTable
-#                del tabAreaTableRow
-                arcpy.AddMessage("MDCP calculations are complete for class: " + m)
-            except:
-                pass
+        # delete cursor and row objects to remove locks on the data
+        try:
+            del outTableRows
+            del outTableRow
+            
+        except:
+            pass
     
+
+def getPatchNumbers(outIdField, newTable, reportingUnitIdField, metricsFieldnameDict, zoneAreaDict, metricConst, m, 
+                    inReportingUnitFeature, inLandCoverGrid, processingCellSize, conversionFactor):
+    # from . import calculate, conversion, environment, fields, files, messages, parameters, polygons, raster, settings, tabarea, table, vector
+    from arcpy import env
+    resultsDict={}
+    
+    try:
+        # create list to identify EXCLUDED and OTHER VALUE fields in the tabulate area table
+        ignoreFieldList = ["VALUE__9999", "VALUE_0"]
+        
+        # put the proper field delimiters around the ID field name for SQL expressions
+        delimitedField = arcpy.AddFieldDelimiters(inReportingUnitFeature, reportingUnitIdField)
+        
+        # Initialize custom progress indicator
+        totalRUs = len(zoneAreaDict)
+        loopProgress = messages.loopProgress(totalRUs)
+    
+        #For each Reporting Unit run Tabulate Area Analysis and add the results to a dictionary
+        for aZone in zoneAreaDict.keys():
+            # set initial metric values
+            numpatch = 0
+            patchArea = 0
+            otherArea = 0
+            excludedArea = 0
+            lrgpatch = 0
+            avepatch = 0
+            proportion = 0
+            patchdensity = 0
+            
+            if isinstance(aZone, int): # reporting unit id is an integer - convert to string for SQL expression
+                squery = "%s = %s" % (delimitedField, str(aZone))
+            else: # reporting unit id is a string - enclose it in single quotes for SQL expression
+                squery = "%s = '%s'" % (delimitedField, str(aZone))
+            
+            #Create a feature layer of the single reporting unit
+            arcpy.MakeFeatureLayer_management(inReportingUnitFeature,"subwatersheds_Layer",squery)
+            
+            #Set the geoprocessing extent to just the extent of the selected reporting unit
+            selectedRUName = "selectedRU_"+str(aZone)
+            arcpy.CopyFeatures_management("subwatersheds_Layer", selectedRUName)
+    
+            #Tabulate areas of patches within single reporting unit
+            tabareaTable = "temptable"
+            arcpy.sa.TabulateArea(selectedRUName, reportingUnitIdField, inLandCoverGrid,"Value", tabareaTable, processingCellSize)
+            
+            arcpy.Delete_management(selectedRUName)
+            
+            rowcount = int(arcpy.GetCount_management(tabareaTable).getOutput(0))
+            if rowcount == 0:
+                arcpy.AddWarning("No land cover grid data found in " + str(aZone))
+            
+            else:
+                #Loop through each row in the table and calculate the patch metrics 
+                rows = arcpy.SearchCursor(tabareaTable)
+                row = rows.next()
+        
+                while row:
+                    flds = arcpy.ListFields(tabareaTable)
+                    valueFieldsList = [f.name for f in flds if "VALUE" in f.name]
+                    
+                    patchAreaList = [row.getValue(fld) for fld in valueFieldsList if fld not in ignoreFieldList]
+                    
+                    # find the area of the OTHER and EXCLUDED classes if they are found in the reporting unit
+                    try:
+                        otherArea = row.getValue("VALUE_0")
+                    except:
+                        otherArea = 0
+                        
+                    try:
+                        excludedArea = row.getValue("VALUE__9999")
+                    except:
+                        excludedArea = 0
+                    
+                    if len(patchAreaList) == 0:
+                        arcpy.AddWarning("No patches found in " + str(aZone))
+                        
+                    else: 
+                        numpatch = len(patchAreaList)
+                        patchArea = sum(patchAreaList)
+                        lrgpatch = max(patchAreaList)
+                        avepatch = patchArea/numpatch
+                        proportion = (lrgpatch/patchArea) * 100
+                        
+                        #convert to square kilometers
+                        rasterRUArea = otherArea + patchArea
+                        rasterRUAreaKM = rasterRUArea* (conversionFactor/1000000)
+                        patchdensity = numpatch/rasterRUAreaKM         
+        
+                    row = rows.next()
+                
+            resultsDict[aZone] = (proportion,numpatch,avepatch,patchdensity,lrgpatch,patchArea,otherArea,excludedArea,zoneAreaDict[aZone])
+
+            loopProgress.update()
+            
+        # Restore the original enviroment extent
+        env.extent = _tempEnvironment3
+
+        # Check to see if newTable has already been set up
+        rowcount = int(arcpy.GetCount_management(newTable).getOutput(0))
+        if rowcount == 0:
+            outTableRows = arcpy.InsertCursor(newTable)
+            for k in resultsDict.keys():
+                # initiate a row to add to the metric output table
+                outTableRow = outTableRows.newRow()
+                
+                # set the reporting unit id value in the output row
+                outTableRow.setValue(outIdField.name, k)
+                
+                # commit the row to the output table
+                outTableRows.insertRow(outTableRow)
+            del outTableRows, outTableRow
+            
+        # assemble the names for the patch metric fields 
+        outClassName = metricsFieldnameDict[m][1]
+        numFieldName = metricConst.numField[0]+outClassName+metricConst.numField[1]
+        avgFieldName = metricConst.avgField[0]+outClassName+metricConst.avgField[1]
+        densFieldName = metricConst.densField[0]+outClassName+metricConst.densField[1]
+        lrgFieldName = metricConst.lrgField[0]+outClassName+metricConst.lrgField[1]
+        
+        # check to see if QA fields are included in table
+        fldNames = [f.name for f in arcpy.ListFields(newTable)]
+        QAFields = metricConst.overlapName in fldNames
+   
+        # create the cursor to add data to the output table
+        outTableRows = arcpy.UpdateCursor(newTable)        
+        outTableRow = outTableRows.next()
+        while outTableRow:
+            uid = outTableRow.getValue(outIdField.name)
+            # populate the patch metric fields for the current reporting unit
+            if (uid in resultsDict):
+                outTableRow.setValue(metricsFieldnameDict[m][0], resultsDict[uid][0])
+                outTableRow.setValue(numFieldName, resultsDict[uid][1])
+                outTableRow.setValue(avgFieldName, resultsDict[uid][2])
+                outTableRow.setValue(densFieldName, resultsDict[uid][3])
+                outTableRow.setValue(lrgFieldName, resultsDict[uid][4])
+            else:
+                outTableRow.setValue(metricsFieldnameDict[m][0], 0)
+                outTableRow.setValue(numFieldName, 0)
+                outTableRow.setValue(avgFieldName, 0)
+                outTableRow.setValue(densFieldName, 0)
+                outTableRow.setValue(lrgFieldName, 0)
+            
+            # add QACheck calculations/values to row
+            if QAFields:
+                 
+                qaCheckFlds = metricConst.qaCheckFieldParameters
+                effectiveArea = resultsDict[uid][5] + resultsDict[uid][6]
+                excludedArea = resultsDict[uid][7]
+                vectorRUArea = resultsDict[uid][8]
+                rasterRUArea = effectiveArea + excludedArea
+                overlapCalc = (rasterRUArea/ vectorRUArea) * 100
+                
+                outTableRow.setValue(qaCheckFlds[0][0], overlapCalc)
+                outTableRow.setValue(qaCheckFlds[1][0], rasterRUArea)
+                outTableRow.setValue(qaCheckFlds[2][0], effectiveArea)
+                outTableRow.setValue(qaCheckFlds[3][0], excludedArea)
+            
+            # commit the row to the output table
+            outTableRows.updateRow(outTableRow)
+            outTableRow = outTableRows.next()
+    finally:
+    
+        # delete cursor and row objects to remove locks on the data
+        try:
+            del rows
+            del row
+            del outTableRows
+            del outTableRow
+            arcpy.Delete_management(tabareaTable)
+        except:
+            pass
+        
+    return resultsDict
+
             
 def getPopDensity(inReportingUnitFeature,reportingUnitIdField,ruArea,inCensusFeature,inPopField,tempWorkspace,
                   outTable,metricConst,cleanupList,index=""):
@@ -703,44 +973,44 @@ def getPopDensity(inReportingUnitFeature,reportingUnitIdField,ruArea,inCensusFea
     from ATtILA2 import utils
     import os
     # If the user specified an index, add an underscore as prefix.
-    if index <> "":
-        index = "_" + index
+    if index != "":
+        index = "_T" + index
     # Create a copy of the census feature class that we can add new fields to for calculations.  This 
     # is more appropriate than altering the user's input data.
     fieldMappings = arcpy.FieldMappings()
     fieldMappings.addTable(inCensusFeature)
-    [fieldMappings.removeFieldMap(fieldMappings.findFieldMapIndex(aFld.name)) for aFld in fieldMappings.fields if aFld.name <> inPopField]
+    [fieldMappings.removeFieldMap(fieldMappings.findFieldMapIndex(aFld.name)) for aFld in fieldMappings.fields if aFld.name != inPopField]
 
     desc = arcpy.Describe(inCensusFeature)
     tempName = "%s_%s" % (metricConst.shortName, desc.baseName)
-    tempCensusFeature = utils.files.nameIntermediateFile([tempName + index,"FeatureClass"],cleanupList)
+    tempCensusFeature = files.nameIntermediateFile([tempName + index,"FeatureClass"],cleanupList)
     inCensusFeature = arcpy.FeatureClassToFeatureClass_conversion(inCensusFeature,tempWorkspace,
                                                                          os.path.basename(tempCensusFeature),"",
                                                                          fieldMappings)
 
     # Add and populate the area field (or just recalculate if it already exists
-    popArea = utils.vector.addAreaField(inCensusFeature,'popArea')
+    popArea = vector.addAreaField(inCensusFeature,'popArea')
     
     # Set up a calculation expression for the density calculation
     calcExpression = "!" + inPopField + "!/!" + popArea + "!"
     # Calculate the population density
-    inPopDensityField = utils.vector.addCalculateField(inCensusFeature,'popDens' + index,calcExpression)
+    inPopDensityField = vector.addCalculateField(inCensusFeature,'popDens' + index,calcExpression)
     
     # Intersect the reporting units with the population features.
-    intersectOutput = utils.files.nameIntermediateFile([metricConst.intersectOutputName + index,"FeatureClass"],cleanupList)
+    intersectOutput = files.nameIntermediateFile([metricConst.intersectOutputName + index,"FeatureClass"],cleanupList)
     arcpy.Intersect_analysis([inReportingUnitFeature,inCensusFeature], intersectOutput)
     
     # Add and populate the area field of the intersected polygons
-    intArea = utils.vector.addAreaField(intersectOutput,'intArea')
+    intArea = vector.addAreaField(intersectOutput,'intArea')
     
     # Calculate the population of the intersected areas by multiplying population density by intersected area
     # Set up a calculation expression for the density calculation
     calcExpression = "!" + inPopDensityField + "!*!" + intArea + "!"
     # Calculate the population density
-    intPopField = utils.vector.addCalculateField(intersectOutput,'intPop',calcExpression)
+    intPopField = vector.addCalculateField(intersectOutput,'intPop',calcExpression)
     
     # Intersect the reporting units with the population features.
-    summaryTable = utils.files.nameIntermediateFile([metricConst.summaryTableName + index,'Dataset'],cleanupList)
+    summaryTable = files.nameIntermediateFile([metricConst.summaryTableName + index,'Dataset'],cleanupList)
     # Sum population for each reporting unit.
        
     """ If the reportingUnitIdField field is not found, it is assumed that
@@ -758,10 +1028,95 @@ def getPopDensity(inReportingUnitFeature,reportingUnitIdField,ruArea,inCensusFea
     fromFields = ["SUM_" + intPopField]
     toField = 'popCount' + index
     # Transfer the values to the output table
-    utils.table.transferField(summaryTable,outTable,fromFields,[toField],reportingUnitIdField,None)
+    table.transferField(summaryTable,outTable,fromFields,[toField],reportingUnitIdField,None)
     
     # Set up a calculation expression for the final density calculation
     calcExpression = "!" + toField + "!/!" + ruArea + "!"
     # Calculate the population density
-    utils.vector.addCalculateField(outTable,metricConst.populationDensityFieldName + index,calcExpression)
+    vector.addCalculateField(outTable,metricConst.populationDensityFieldName + index,calcExpression)
+
+
+def getPolygonPopCount(inPolygonFeature,inPolygonIdField,inCensusFeature,inPopField,classField,
+                  outTable,metricConst,index=""):
+    """ Performs a transfer of population from input census features to input polygon features using simple
+        areal weighting.  
+    
+    **Description:**
+
+        This function uses Tabulate Intersection to construct a table with a field containing the area weighted
+        population count for each input polygon unit. The population field is renamed from the metric constants entry.
+        Finally, fields in the constructed table are trimmed down to just the Polygon Id field, the population count
+        field, and any required fields such as OID.
+        
+    **Arguments:**
+
+        * *inPolygonFeature* - input Polygon feature class with full path.
+        * *inPolygonIdField* - the name of the field in the reporting unit feature class containing a unique identifier
+        * *inCensusFeature* - input population feature class with full path
+        * *inPopField* - the name of the field in the population feature class containing count values
+        * *classField* - a field in the population feature class with a constant value
+        * *outTable* -  the output table that will contain calculated population values
+        * *metricConst* - an ATtILA2 object containing constant values to match documentation
+        * *index* - if this function is going to be run multiple times, this index is used to keep track of intermediate
+                    outputs and field names.
+        
+    **Returns:**
+
+        * None
+        
+    """
+    # Construct a table with a field containing the area weighted population count for each input polygon unit
+    arcpy.TabulateIntersection_analysis(inPolygonFeature,[inPolygonIdField],inCensusFeature,outTable,[classField],[inPopField])
+    
+    # Rename the population count field.
+    outPopField = metricConst.populationCountFieldNames[index]
+    arcpy.AlterField_management(outTable, inPopField, outPopField, outPopField)
+    
+def replaceNullValues(inTable,inField,newValue):
+    # Replace NULL values in a field with the supplied value
+    whereClause = inField+" IS NULL"
+    updateCursor = arcpy.UpdateCursor(inTable, whereClause, "", inField)
+    for updateRow in updateCursor:
+        updateRow.setValue(inField, newValue)
+        # Persist all of the updates for this row.
+        updateCursor.updateRow(updateRow)
+        # Clean up our row element for memory management and to remove locks
+        del updateRow
+    # Clean up our row element for memory management and to remove locks
+    del updateCursor
+    
+def percentageValue(inTable, numeratorField, denominatorField, percentField):
+    # Set up a calculate percentage expression 
+    calcExpression = "getValuePercent(!"+numeratorField+"!,!"+denominatorField+"!)"
+    codeBlock = """def getValuePercent(n,d):
+                        if d == 0:
+                            if n == 0:
+                                return 0
+                            else:
+                                return 1
+                        else:
+                            return (n/d)*100"""
+    
+    # Calculate and record the percent population within view area
+    vector.addCalculateField(inTable, percentField, calcExpression, codeBlock)
+def differenceValue(inTable, totalField, subtratorField, resultField):
+    # Set up a calculate percentage expression 
+    calcExpression = "getValueDifference(!"+totalField+"!,!"+subtratorField+"!)"
+    codeBlock = """def getValueDifference(n,d):
+                        return (n-d)"""
+    
+    # Calculate and record the percent population within view area
+    vector.addCalculateField(inTable, resultField, calcExpression, codeBlock)
+
+def belowValue(inTable, sourceField, threshold, addedField):
+    # Set up a calculate percentage expression 
+    calcExpression = "getValuePercent(!"+sourceField+"!, "+ threshold + ")"
+    codeBlock = """def getValuePercent(n, d):
+                        if n < d:
+                            return 1
+                        else:
+                            return 0"""
+    
+    # Calculate and record the percent population within view area
+    vector.addCalculateFieldInteger(inTable, addedField, calcExpression, codeBlock)
 

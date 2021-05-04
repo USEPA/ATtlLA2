@@ -5,8 +5,11 @@
     .. _Table: 
 '''
 import os
+
 import arcpy
-from pylet import arcpyutil
+#from .. import utils
+
+from . import fields
 from ATtILA2.constants import globalConstants
 
 def createMetricOutputTable(outTable, outIdField, metricsBaseNameList, metricsFieldnameDict, metricFieldParams, 
@@ -48,7 +51,7 @@ def createMetricOutputTable(outTable, outIdField, metricsBaseNameList, metricsFi
     
     # Field objects in ArcGIS 10 service pack 0 have a type property that is incompatible with some of the AddField 
     # tool's Field Type keywords. This addresses that issue
-    outIdFieldType = arcpyutil.fields.convertFieldTypeKeyword(outIdField)
+    outIdFieldType = fields.convertFieldTypeKeyword(outIdField)
     
     arcpy.AddField_management(newTable, outIdField.name, outIdFieldType, outIdField.precision, outIdField.scale)
     
@@ -71,10 +74,129 @@ def createMetricOutputTable(outTable, outIdField, metricsBaseNameList, metricsFi
                                    addAreaFldParams[2], addAreaFldParams[3])for mBaseName in metricsBaseNameList]
          
     # delete the 'Field1' field if it exists in the new output table.
-    arcpyutil.fields.deleteFields(newTable, ["field1"])
+    fields.deleteFields(newTable, ["field1"])
     
         
     return newTable
+
+def createPolygonValueCountTable(inPolygonFeature,inPolygonIdField,inValueDataset,inValueField,
+                  outTable,metricConst,index,cleanupList):
+    """Transfer a value count from an specified geodataset to input polygon features, using simple areal weighting.
+    
+    **Description:**
+
+        This function uses Tabulate Intersection to construct a table with a field containing the area weighted
+        value count (e.g., POPULATION) for each input polygon unit. The value field is renamed from the metric 
+        constants entry.
+        
+        Returns the created output table and the generated output value count field name.
+        
+    **Arguments:**
+
+        * *inPolygonFeature* - input Polygon feature class with full path.
+        * *inPolygonIdField* - the name of the field in the reporting unit feature class containing a unique identifier
+        * *inValueDataset* - input value feature class or raster with full path
+        * *inValueField* - the name of the field in the value feature class containing count values. Will be empty if 
+                           the inValueDataset is a raster
+        * *outTable* -  the output table that will contain calculated population values
+        * *metricConst* - an ATtILA2 object containing constant values to match documentation
+        * *index* - if this function is going to be run multiple times, this index is used to keep track of intermediate
+                    outputs and field names.
+        * *cleanupList* - object containing commands and parameters to perform at cleanup time.
+        
+    **Returns:**
+
+        * table (type unknown - string representation?)
+        * string - the generated output value count field name
+        
+    """
+    from arcpy import env
+    from .. import errors
+    from . import files
+    tempEnvironment0 = env.snapRaster
+    tempEnvironment1 = env.cellSize
+    
+    try:
+        desc = arcpy.Describe(inValueDataset)
+        
+        if desc.datasetType == "RasterDataset":
+            # set the raster environments so the raster operations align with the census grid cell boundaries
+            env.snapRaster = inValueDataset
+            env.cellSize = desc.meanCellWidth
+
+            # calculate the population for the polygon features using zonal statistics as table
+            arcpy.sa.ZonalStatisticsAsTable(inPolygonFeature, inPolygonIdField, inValueDataset, outTable, "DATA", "SUM")
+
+            # Rename the population count field.
+            outValueField = metricConst.valueCountFieldNames[index]
+            arcpy.AlterField_management(outTable, "SUM", outValueField, outValueField)
+        
+        else: # census features are polygons
+            # Create a copy of the census feature class that we can add new fields to for calculations.
+            fieldMappings = arcpy.FieldMappings()
+            fieldMappings.addTable(inValueDataset)
+            [fieldMappings.removeFieldMap(fieldMappings.findFieldMapIndex(aFld.name)) for aFld in fieldMappings.fields if aFld.name != inValueField]
+            tempName = "%s_%s" % (metricConst.shortName, desc.baseName)
+            tempCensusFeature = files.nameIntermediateFile([tempName + "_Work","FeatureClass"],cleanupList)
+            inValueDataset = arcpy.FeatureClassToFeatureClass_conversion(inValueDataset,env.workspace,
+                                                                                 os.path.basename(tempCensusFeature),"",
+                                                                                 fieldMappings)
+
+            # Add a dummy field to the copied census feature class and calculate it to a value of 1.
+            classField = "tmpClass"
+            arcpy.AddField_management(inValueDataset,classField,"SHORT")
+            arcpy.CalculateField_management(inValueDataset,classField,1)
+            
+            # Construct a table with a field containing the area weighted value count for each input polygon unit
+            arcpy.TabulateIntersection_analysis(inPolygonFeature,[inPolygonIdField],inValueDataset,outTable,[classField],[inValueField])
+            
+            # Rename the population count field.
+            outValueField = metricConst.valueCountFieldNames[index]
+            arcpy.AlterField_management(outTable, inValueField, outValueField, outValueField)
+            
+        return outTable, outValueField
+
+    except Exception as e:
+        errors.standardErrorHandling(e)
+
+    finally:
+        env.snapRaster = tempEnvironment0
+        env.cellSize = tempEnvironment1
+        
+        
+def getIdValueDict(inTable, keyField, valueField):
+    """ Generates a dictionary with values from a specified field in a table keyed to the table's ID field entry.
+
+        **Description:**
+        
+        Generates a dictionary with values from a specified field in a table keyed to the table's ID field entry.  No 
+        check is made for duplicate keys. The value for the last key encountered will be present in the dictionary.
+        
+        
+        **Arguments:**
+        
+        * *inTable* - Table containing an ID field and a Value field. Assumes one record per ID.
+        * *keyField* - Unique ID field
+        * *valueField* - Field containing the desired values
+        
+        
+        **Returns:** 
+        
+        * dict - The item from keyField is the key and the value field entry is the value
+
+        
+    """    
+
+    zoneValueDict = {}
+    
+    rows = arcpy.SearchCursor(inTable)
+    for row in rows:
+        key = row.getValue(keyField)
+        value = row.getValue(valueField)
+        zoneValueDict[key] = (value)
+
+    return zoneValueDict
+        
 
 def fullNameTruncation(outputFldName, maxFieldNameSize, outputFieldNames):
     """ Truncates the metric field name from the xxxxField class attribute to fit field name size restrictions
@@ -187,7 +309,7 @@ def tableWriterByClass(outTable, metricsBaseNameList, optionalGroupsList, metric
         
     """
 
-    maxFieldNameSize = arcpyutil.fields.getFieldNameSizeLimit(outTable) 
+    maxFieldNameSize = fields.getFieldNameSizeLimit(outTable) 
     metricFieldParams = metricConst.fieldParameters
     metricsFieldnameDict = {} # create a dictionary of ClassName keys with user supplied field names values
     outputFieldNames = set() # use this set to help make field names unique   
@@ -294,7 +416,9 @@ def tableWriterByCoefficient(outTable, metricsBaseNameList, optionalGroupsList, 
         
     """
     
-    maxFieldNameSize = arcpyutil.fields.getFieldNameSizeLimit(outTable)
+    #maxFieldNameSize = fields.getFieldNameSizeLimit(outTable)
+
+    maxFieldNameSize = fields.getFieldNameSizeLimit(outTable)
     metricFieldParams = metricConst.fieldParameters
     metricsFieldnameDict = {} # create a dictionary of ClassName keys with user supplied field names values
     outputFieldNames = set() # use this set to help make field names unique       
@@ -362,7 +486,7 @@ def tableWriterNoLcc(outTable, metricsBaseNameList, optionalGroupsList, metricCo
         
     """
 
-    maxFieldNameSize = arcpyutil.fields.getFieldNameSizeLimit(outTable) 
+    maxFieldNameSize = fields.getFieldNameSizeLimit(outTable) 
     metricFieldParams = metricConst.fieldParameters
     metricsFieldnameDict = {} # create a dictionary of ClassName keys with user supplied field names values
     outputFieldNames = set() # use this set to help make field names unique 
@@ -442,7 +566,8 @@ def transferField(fromTable,toTable,fromFields,toFields,joinField,classField="#"
             # For each class value in the class values list
             for classValue in classValues:
                 # if the dictionary doesn't already have an element with this value as the key 
-                if not transferClassFields.has_key(classValue):
+                #if not transferClassFields.has_key(classValue):
+                if classValue not in transferClassFields:
                     # Add a new empty list to the dictionary with this classValue as key
                     transferClassFields[classValue] = []
                 # Obtain a valid output fieldname that combines the desired output fieldname with this class value
@@ -452,13 +577,15 @@ def transferField(fromTable,toTable,fromFields,toFields,joinField,classField="#"
                 # Get the properties of the source field
                 fromFieldObj = arcpy.ListFields(fromTable,fromField)[0]
                 # Add the new field to the output table with the appropriate properties and the valid name
+#                 arcpy.AddField_management(toTable,classToField,fromFieldObj.type,fromFieldObj.precision,fromFieldObj.scale,
+#                           fromFieldObj.length,fromFieldObj.aliasName,fromFieldObj.isNullable,fromFieldObj.required,
+#                           fromFieldObj.domain) 
                 arcpy.AddField_management(toTable,classToField,fromFieldObj.type,fromFieldObj.precision,fromFieldObj.scale,
-                          fromFieldObj.length,fromFieldObj.aliasName,fromFieldObj.isNullable,fromFieldObj.required,
-                          fromFieldObj.domain) 
+                          fromFieldObj.length,"",fromFieldObj.isNullable,fromFieldObj.required,fromFieldObj.domain)
         # In preparation for the upcoming whereclause, add the appropriate delimiters to the join field
         joinFieldDelim = arcpy.AddFieldDelimiters(fromTable,joinField)
         # In preparation for the upcoming whereclause, set up the appropriate delimiter function for the join value
-        delimitJoinValues = arcpyutil.fields.valueDelimiter(arcpy.ListFields(fromTable,joinField)[0].type)
+        delimitJoinValues = fields.valueDelimiter(arcpy.ListFields(fromTable,joinField)[0].type)
         # Initialize an update cursor on the output table
         updateCursor = arcpy.UpdateCursor(toTable)
         # For each row in the output table (each reporting unit)
@@ -507,12 +634,15 @@ def addJoinCalculateField(fromTable,toTable,fromField,toField,joinField):
                         may need to be modified in the future.
     '''
     # If renaming is required, add a temp field to the fromtable with the new name
-    if fromField <> toField:
+    if fromField != toField:
         # Get the properties of the from field for transfer
         fromField = arcpy.ListFields(fromTable,fromField)[0]
         # Add the new field with the new name
+#         arcpy.AddField_management(fromTable,toField,fromField.type,fromField.precision,fromField.scale,
+#                               fromField.length,fromField.aliasName,fromField.isNullable,fromField.required,
+#                               fromField.domain)
         arcpy.AddField_management(fromTable,toField,fromField.type,fromField.precision,fromField.scale,
-                              fromField.length,fromField.aliasName,fromField.isNullable,fromField.required,
+                              fromField.length,"",fromField.isNullable,fromField.required,
                               fromField.domain)        
         # Calculate the field
         arcpy.CalculateField_management(fromTable,toField,'!'+ fromField.name +'!',"PYTHON")
@@ -527,7 +657,7 @@ def addJoinCalculateField(fromTable,toTable,fromField,toField,joinField):
     #arcpy.JoinField_management(toTable,joinField,fromTable,joinField,toField)
     arcpy.JoinField_management(toTable,joinField_In_toTable,fromTable,joinField,toField)
     # If we added a temp field
-    if fromField <> toField:
+    if fromField != toField:
         arcpy.DeleteField_management(fromTable,toField)
     
 def getClassFieldName(fieldName,classVal,table):

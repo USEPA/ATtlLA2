@@ -1,4 +1,4 @@
-""" Land Cover Proportion Metrics
+""" Land Cover Coefficient Calculator
 
     This script is associated with an ArcToolbox script tool.
     
@@ -7,11 +7,10 @@
 
 import sys
 from ATtILA2 import metric
-from pylet.arcpyutil import parameters
+from ATtILA2.utils import parameters
 
 
 def main(_argv):
-    
     # Script arguments
     inputArguments = parameters.getParametersAsText([0, 2])
     

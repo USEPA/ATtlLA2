@@ -1,0 +1,160 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<lccSchema xmlns="lcc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="LCCSchema.xsd">
+    <metadata>
+        <name>EnviroAtlas Meter-Scale Urban Land Cover LAND</name>
+        <description>The EnviroAtlas One Meter-scale Urban Land Cover (MULC) Data were generated individually for each EnviroAtlas community. Source imagery varies by community. Land cover classes mapped also vary by community and include the following: water, impervious surfaces, soil and barren land, trees, shrub, grass and herbaceous, agriculture, orchards, woody wetlands, and emergent wetlands. No raster values except those representing NODATA are excluded from the calculation of reporting unit effective area (i.e., effective area equals the total raster area within a reporting unit). Percentage metrics are based on the effective area of a reporting unit, not necessarily its total area.</description>
+    </metadata>
+    <!--  
+        * The coefficients node contains coefficients to be assigned to values.
+           
+        * REQUIRED ATTRIBUTES
+        * Id - text, unique identifier
+        * Name - text, word or phrase describing coefficient
+        * fieldName - text, name of field to be created for output
+        *           - must conform to the field naming conventions dictated by the output database system
+        * method - text, "P" or "A", designates "P"ercentage or per unit "A"rea calculation routine
+     -->
+    <coefficients>
+        <coefficient Id="IMPERVIOUS" Name="Percent Cover Total Impervious Area" fieldName="PCTIA" method="P" />
+        <coefficient Id="NITROGEN" Name="Estimated Nitrogen Loading Based on Land Cover" fieldName="N_Load" method="A" />
+        <coefficient Id="PHOSPHORUS" Name="Estimated Phosphorus Loading Based on Land Cover" fieldName="P_Load" method="A" />
+    </coefficients>
+    <!--  
+        * The values node defines the full set of values that can exist in a land cover raster.
+        
+        * REQUIRED ATTRIBUTES
+        * Id - integer, raster code
+        *
+        * OPTIONAL ATTRIBUTES
+        * Name - text, word or phrase describing value
+        * excluded - boolean, "true" or "false" or "1" or "0"
+        *          - used to exclude values from effective area calculations
+        *          - excluded=false is the default 
+        
+        * A value element can optionally contain one or more coefficient elements
+
+        * REQUIRED COEFFICIENT ATTRIBUTES
+        * Id - text, must match an Id attribute from a coefficients node element
+        * value - decimal, weighting/calculation factor
+     -->
+    <values>
+        <value Id="10" Name="Water">
+            <coefficient Id="IMPERVIOUS" value="0.0" />
+            <coefficient Id="NITROGEN" value="0.0" />
+            <coefficient Id="PHOSPHORUS" value="0.0" />
+        </value>
+        <value Id="20" Name="Impervious Surface">
+            <coefficient Id="IMPERVIOUS" value="0.0" />
+            <coefficient Id="NITROGEN" value="0.0" />
+            <coefficient Id="PHOSPHORUS" value="0.0" />
+        </value>
+        <value Id="30" Name="Soil and Barren">
+            <coefficient Id="IMPERVIOUS" value="0.0" />
+            <coefficient Id="NITROGEN" value="0.0" />
+            <coefficient Id="PHOSPHORUS" value="0.0" />
+        </value>
+        <value Id="40" Name="Trees and Forest">
+            <coefficient Id="IMPERVIOUS" value="0.0" />
+            <coefficient Id="NITROGEN" value="0.0" />
+            <coefficient Id="PHOSPHORUS" value="0.0" />
+        </value>
+        <value Id="52" Name="Shrubs">
+            <coefficient Id="IMPERVIOUS" value="0.0" />
+            <coefficient Id="NITROGEN" value="0.0" />
+            <coefficient Id="PHOSPHORUS" value="0.0" />
+        </value>
+        <value Id="70" Name="Grass and Herbaceous">
+            <coefficient Id="IMPERVIOUS" value="0.0" />
+            <coefficient Id="NITROGEN" value="0.0" />
+            <coefficient Id="PHOSPHORUS" value="0.0" />
+        </value>
+        <value Id="80" Name="Row Crops">
+            <coefficient Id="IMPERVIOUS" value="0.0" />
+            <coefficient Id="NITROGEN" value="0.0" />
+            <coefficient Id="PHOSPHORUS" value="0.0" />
+        </value>
+        <value Id="82" Name="Orchards">
+            <coefficient Id="IMPERVIOUS" value="0.0" />
+            <coefficient Id="NITROGEN" value="0.0" />
+            <coefficient Id="PHOSPHORUS" value="0.0" />
+        </value>
+        <value Id="91" Name="Woody Wetlands">
+            <coefficient Id="IMPERVIOUS" value="0.0" />
+            <coefficient Id="NITROGEN" value="0.0" />
+            <coefficient Id="PHOSPHORUS" value="0.0" />
+        </value>
+        <value Id="92" Name="Emergent Wetlands">
+            <coefficient Id="IMPERVIOUS" value="0.0" />
+            <coefficient Id="NITROGEN" value="0.0" />
+            <coefficient Id="PHOSPHORUS" value="0.0" />
+        </value>
+    </values>
+    <!-- 
+        * The classes node contains values from a land cover raster grouped into one or more classes.
+    
+        * REQUIRED ATTRIBUTES
+        * Id - text, unique identifier, also used for automated generation of output field name
+        *    - must conform to the field naming conventions dictated by the output database system
+        
+        * OPTIONAL ATTRIBUTES
+        * Name - text, word or phrase describing class
+        * filter - text, a string of one or more tool name abbreviations separated by a ";"
+        *        - possible abbreviations are: caem, flcp, lcosp, lcp, pm, rlcp, and splcp
+        *        - used to exclude the class from the selectable classes in the tool's GUI
+        * xxxxField - text, overrides ATtILA-generated field name for output
+        *           - where xxxx equals a tool name abbreviation
+        *           - possible abbreviations are: flcp, lcosp, lcp, rlcp, and splcp
+        *           - a separate xxxxField attribute can exist for each tool
+        *           - must conform to the field naming conventions dictated by the output database system
+
+        * A class can contain either values or classes but not both types.
+        * Value elements contain only an Id attribute which refers to a value in a raster.
+        * Values tagged as excluded="true" in the values node should not be included in any class.
+     -->
+    <classes>
+        <class Id="green" Name="All Vegetative Areas" filter="">
+            <class Id="ag" Name="Agriculture" filter="">
+                <class Id="agrc" Name="Row Crops" filter="">
+                    <value Id="80" />
+                </class>
+                <class Id="agor" Name="Orchards" filter="">
+                    <value Id="82" />
+                </class>
+            </class>
+            <class Id="veg" Name="Natural Vegetation" filter="">
+                <class Id="for" Name="Trees/Forest, and Woody Wetlands" filter="">
+                    <value Id="40" />
+                    <value Id="91" />
+                </class>
+                <class Id="mfor" Name="Trees/Forest, Orchards, and Woody Wetlands" filter="">
+                    <value Id="40" />
+                    <value Id="82" />
+                    <value Id="91" />
+                </class>
+                <class Id="grs" Name="Grass and Herbaceous" filter="">
+                    <value Id="70" />
+                </class>
+                <class Id="shb" Name="Shrub" filter="">
+                    <value Id="52" />
+                </class>
+                <class Id="wet" Name="Wetlands" filter="">
+                    <class Id="wetw" Name="Woody Wetlands" filter="">
+                        <value Id="91" />
+                    </class>
+                    <class Id="wete" Name="Emergent Wetlands" filter="">
+                        <value Id="92" />
+                    </class>
+                </class>
+            </class>
+        </class>
+        <class Id="bar" Name="Soil and Barren" filter="">
+            <value Id="30" />
+        </class>
+        <class Id="imp" Name="Impervious Surface" filter="">
+            <value Id="20" />
+        </class>
+        <class Id="wtr" Name="Water" filter="">
+            <value Id="10" />
+        </class>
+    </classes>
+</lccSchema>

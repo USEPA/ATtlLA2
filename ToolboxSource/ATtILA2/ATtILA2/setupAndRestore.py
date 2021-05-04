@@ -2,7 +2,10 @@
 '''
 import arcpy
 from arcpy import env
-from pylet import arcpyutil
+#from pylet import utils
+from .utils import environment
+from .utils import parameters
+
 
 from ATtILA2.constants import globalConstants
 
@@ -28,7 +31,7 @@ def standardSetup(snapRaster, processingCellSize, fallBackDirectory, itemDescrip
     _tempEnvironment4 = env.outputMFlag
     _tempEnvironment5 = env.outputZFlag
 
-    env.workspace = arcpyutil.environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, fallBackDirectory)
+    env.workspace = environment.getWorkspaceForIntermediates(globalConstants.scratchGDBFilename, fallBackDirectory)
     
     # set the raster environments so the rasterized polygon theme aligns with land cover grid cell boundaries
     if snapRaster:
@@ -38,7 +41,7 @@ def standardSetup(snapRaster, processingCellSize, fallBackDirectory, itemDescrip
     
     itemTuples = []
     for itemDescriptionPair in itemDescriptionPairList:
-        processed = arcpyutil.parameters.splitItemsAndStripDescriptions(itemDescriptionPair, globalConstants.descriptionDelim)
+        processed = parameters.splitItemsAndStripDescriptions(itemDescriptionPair, globalConstants.descriptionDelim)
         itemTuples.append(processed)
         
         if globalConstants.intermediateName in processed:

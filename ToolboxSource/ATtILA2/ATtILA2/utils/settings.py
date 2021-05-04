@@ -1,7 +1,9 @@
 """ Tasks specific to checking and retrieving settings 
 """
-from ATtILA2.constants import globalConstants
-from pylet import arcpyutil
+from ..constants import globalConstants
+#from pylet import utils
+from . import fields
+from . import raster
 import arcpy
 
 
@@ -35,7 +37,7 @@ def getOutputSpatialReference(inputDataset):
 
 def getIdOutField(inFeature, inField):
     """ Processes the InputField. If field is an OID type, alters the output field type and name """
-    inField = arcpyutil.fields.getFieldByName(inFeature, inField)
+    inField = fields.getFieldByName(inFeature, inField)
     
     if inField.type == "OID":
         newField = arcpy.Field()
@@ -49,10 +51,10 @@ def getIdOutField(inFeature, inField):
     return (newField)
 
 
-def checkGridValuesInLCC(inLandCoverGrid, lccObj, ignoreHighest):
+def checkGridValuesInLCC(inLandCoverGrid, lccObj, ignoreHighest=False):
     """ Checks input grid values. Warns user if values are undefined in LCC XML file. """
 
-    gridValuesList = arcpyutil.raster.getRasterValues(inLandCoverGrid)
+    gridValuesList = raster.getRasterValues(inLandCoverGrid)
     
     if ignoreHighest:
         gridValuesList.sort()
@@ -100,11 +102,11 @@ def processUIDField(inReportingUnitFeature, reportingUnitIdField):
     if uIDFields == []: # If the list is empty, grab the field of type OID
         uIDFields = arcpy.ListFields(inReportingUnitFeature,"",'OID')
     uIDField = uIDFields[0] # This is an arcpy field object
-    if (uIDField.type <> "String"): # unit IDs that are not in string format can cause problems.  
+    if (uIDField.type != "String"): # unit IDs that are not in string format can cause problems.  
         # Create a unit ID with a string format
-        reportingUnitIdField = arcpyutil.fields.makeTextID(uIDField,inReportingUnitFeature)
+        reportingUnitIdField = fields.makeTextID(uIDField,inReportingUnitFeature)
         # Obtain a field object from the new field.
         uIDField = arcpy.ListFields(inReportingUnitFeature,reportingUnitIdField)[0]
     # Convert the field properties from the default ArcPy field object into inputs for the AddField object.    
-    uIDField = arcpyutil.fields.updateFieldProps(uIDField)
+    uIDField = fields.updateFieldProps(uIDField)
     return uIDField

@@ -56,8 +56,8 @@ def zipws(path, zip, keep):
                     zip.write(os.path.join(dirpath, file),            
                     os.path.join(dirpath[len(path):], file)) 
                     
-            except Exception, e:
-                print "    Error adding %s: %s" % (file, e)
+            except Exception as e:
+                print("    Error adding %s: %s" % (file, e))
 
     return None
 
@@ -73,10 +73,10 @@ def main(_argv):
     dateStr = d.strftime("%Y%b%d")
     
     outputDir = 'ATtILA_Deployment'
-    toolbox = 'ATtILA 10_0.tbx'
+    toolbox = 'ATtILA2.tbx'
     readme = 'README.txt'
     tbSource = 'ToolboxSource'
-    pylet = '../pylet'
+    # pylet = '../pylet'
     outputZip = 'ATtILA_'+dateStr+'.zip'
     ignoreFiles = shutil.ignore_patterns('.git*','.settings','.project','.pydevproject','*.lfn','*.wsp','tests',
                                          'AutoSave','apidoc','CutAndPaste','*.bak','*.bat')
@@ -91,7 +91,7 @@ def main(_argv):
     shutil.copy2(toolbox,outputDir)
     shutil.copy2(readme,outputDir)
     copyFolder(tbSource,outputDir,ignoreFiles)
-    copyFolder(pylet,os.path.join(outputDir,tbSource),ignoreFiles)
+    # copyFolder(pylet,os.path.join(outputDir,tbSource),ignoreFiles)
     
     # Rename the ATtILA2.py file
     inName = os.path.join(outputDir,'ToolboxSource\\ATtILA2\\scripts\\RENAME-TO--ATtILA2.py--ON-DEPLOY.py')

@@ -1,4 +1,4 @@
-""" Road Density Metrics
+""" Population Density Metrics
 
     This script is associated with an ArcToolbox script tool.
     
@@ -7,7 +7,7 @@
 
 import sys
 from ATtILA2 import metric
-from pylet.arcpyutil import parameters
+from ATtILA2.utils import parameters
 
 def main(_argv):
     

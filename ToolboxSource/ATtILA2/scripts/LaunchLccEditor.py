@@ -29,7 +29,8 @@ def main(_argv):
     arcpy.AddMessage(indentMsg + exePath)
     arcpy.AddMessage(endMsg)
     
-    os.startfile(pywPath)
+    #os.startfile(pywPath)
+    os.startfile(exePath)
 
     
 if __name__ == "__main__":

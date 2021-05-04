@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<lccSchema xmlns="lcc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="LCCSchema_v2.xsd">
+<lccSchema xmlns="lcc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="LCCSchema.xsd">
     <metadata>
         <name>C-CAP LAND</name>
         <description>C-CAP LAND Land Cover Classification Schema. Water-related raster values are tagged as EXCLUDED. Excluded values are ignored when calculating the effective area of a reporting unit. Percentage metrics are based on the effective area of a reporting unit, not the total area. Coefficient values for impervious area calculations are based on those reported in Caraco et al. (1998). Those supplied for the nitrogen loading and phosphorous loading estimates were obtained from Reckhow et al. (1980). As coefficient values can vary considerably for a given land cover type across locations, all provided values should be evaluated critically before use and altered when necessary. Complete literature citations are provided in the ATtILA for ArcGIS help file.</description>
@@ -11,6 +11,7 @@
         * Id - text, unique identifier
         * Name - text, word or phrase describing coefficient
         * fieldName - text, name of field to be created for output
+        *           - must conform to the field naming conventions dictated by the output database system
         * method - text, "P" or "A", designates "P"ercentage or per unit "A"rea calculation routine
      -->
     <coefficients>
@@ -173,16 +174,18 @@
     
         * REQUIRED ATTRIBUTES
         * Id - text, unique identifier, also used for automated generation of output field name
+        *    - must conform to the field naming conventions dictated by the output database system
         
         * OPTIONAL ATTRIBUTES
         * Name - text, word or phrase describing class
         * filter - text, a string of one or more tool name abbreviations separated by a ";"
-        *        - possible abbreviations are: lcp, rlcp, lcosp, splcp, and caem
+        *        - possible abbreviations are: caem, flcp, lcosp, lcp, pm, rlcp, and splcp
         *        - used to exclude the class from the selectable classes in the tool's GUI
         * xxxxField - text, overrides ATtILA-generated field name for output
         *           - where xxxx equals a tool name abbreviation
-        *           - possible abbreviations are: lcp, rlcp, lcosp, splcp, and caem
+        *           - possible abbreviations are: flcp, lcosp, lcp, rlcp, and splcp
         *           - a separate xxxxField attribute can exist for each tool
+        *           - must conform to the field naming conventions dictated by the output database system
 
         * A class can contain either values or classes but not both types.
         * Value elements contain only an Id attribute which refers to a value in a raster.

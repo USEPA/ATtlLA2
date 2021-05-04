@@ -1,4 +1,5 @@
-import constants
-import utils
-import metric
-import ToolValidator
+
+from .constants import *
+from .utils import *
+from . import metric
+from .ToolValidator import *
